@@ -1,0 +1,258 @@
+/* Design tokens of the "Pelouse" direction (Claude Design handoff, piste 1c). */
+:root {
+	--bg: oklch(0.97 0.014 145);
+	--surface: #ffffff;
+	--border: #dde3d8;
+	--border-strong: #d3dacd;
+	--border-soft: #edf0e9;
+	--track: #edf0e9;
+
+	--text: #1b2417;
+	--text-2: #4a5245;
+	--text-3: #3e4a3a;
+	--muted: #6a7364;
+	--muted-2: #8a9284;
+	--idle: #c4ccbd;
+	--idle-2: #afb8a8;
+
+	--grass: oklch(0.55 0.14 145);
+	--grass-strong: oklch(0.45 0.13 145);
+	--grass-deep: oklch(0.42 0.12 145);
+	--grass-soft: oklch(0.96 0.05 145);
+	--grass-soft-border: oklch(0.85 0.08 145);
+	--grass-shadow: rgba(58, 122, 70, 0.35);
+
+	--lemon: oklch(0.88 0.14 95);
+	--lemon-soft: oklch(0.95 0.055 95);
+	--lemon-dot: oklch(0.7 0.13 85);
+	--lemon-text: #4e4522;
+
+	--sky: oklch(0.72 0.15 230);
+	--orange: oklch(0.72 0.17 55);
+
+	--loss: oklch(0.52 0.16 30);
+	--loss-dot: oklch(0.62 0.16 30);
+	--loss-soft: oklch(0.94 0.05 30);
+	--loss-soft-text: oklch(0.48 0.15 30);
+	--loss-border: oklch(0.8 0.09 30);
+	--loss-panel: oklch(0.96 0.035 30);
+	--loss-panel-text: #5a3a34;
+
+	--warn-bg: oklch(0.95 0.045 60);
+	--warn-border: oklch(0.82 0.1 60);
+	--warn-text: #4e3a22;
+	--warn-dot: oklch(0.62 0.16 50);
+
+	--font-display: 'Bricolage Grotesque', 'Manrope', sans-serif;
+	--font-body: 'Manrope', Helvetica, sans-serif;
+
+	--mowing: repeating-linear-gradient(
+		115deg,
+		rgba(255, 255, 255, 0.07) 0 28px,
+		transparent 28px 56px
+	);
+	--sidebar-width: 248px;
+	--header-height: 72px;
+	--tabbar-height: 76px;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-body);
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+}
+
+button:disabled {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+:focus-visible {
+	outline: 2px solid var(--grass);
+	outline-offset: 2px;
+}
+
+.display {
+	font-family: var(--font-display);
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+.num {
+	font-family: var(--font-display);
+	font-weight: 700;
+}
+
+.positive {
+	color: var(--grass-strong);
+}
+
+.negative {
+	color: var(--loss);
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.eyebrow {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* Shared surfaces */
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 22px;
+}
+
+.card-soft {
+	background: var(--grass-soft);
+	border: 1px solid var(--grass-soft-border);
+	border-radius: 22px;
+}
+
+.card-title {
+	font-family: var(--font-display);
+	font-size: 17px;
+	font-weight: 700;
+	margin: 0;
+}
+
+.link {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--grass-strong);
+	background: none;
+	border: none;
+	padding: 0;
+}
+
+.btn {
+	height: 48px;
+	border-radius: 14px;
+	border: none;
+	background: var(--grass);
+	color: #fff;
+	display: inline-grid;
+	place-items: center;
+	padding: 0 18px;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.btn.secondary {
+	background: var(--bg);
+	border: 1px solid var(--border);
+	color: var(--text-2);
+}
+
+.btn.danger {
+	background: var(--surface);
+	border: 1px solid var(--loss-border);
+	color: var(--loss);
+}
+
+.btn.small {
+	height: 38px;
+	border-radius: 12px;
+	font-size: 13px;
+	padding: 0 14px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	border-radius: 18px;
+	padding: 12px 16px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+}
+
+.field > span {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--muted);
+}
+
+.field input,
+.field select {
+	border: none;
+	background: transparent;
+	padding: 0;
+	font-size: 15px;
+	font-weight: 700;
+	outline: none;
+	width: 100%;
+	min-width: 0;
+}
+
+.field input.big {
+	font-family: var(--font-display);
+	font-size: 22px;
+}
+
+.field:focus-within {
+	border-color: var(--grass);
+}
+
+.form-error {
+	border-radius: 14px;
+	padding: 11px 14px;
+	background: var(--loss-panel);
+	color: var(--loss-panel-text);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+@media (max-width: 1023px) {
+	.desktop-only {
+		display: none !important;
+	}
+}
+
+@media (min-width: 1024px) {
+	.mobile-only {
+		display: none !important;
+	}
+}
