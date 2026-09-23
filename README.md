@@ -39,6 +39,16 @@ Le navigateur ne parle qu'au serveur SvelteKit ; celui-ci appelle l'API avec le 
 - Node.js 22+ (24 recommandé) et npm
 - Docker + Docker Compose (optionnel, pour le déploiement)
 
+Les versions sont épinglées à la racine et lues automatiquement par les outils usuels (et par la CI) :
+
+| Fichier | Outil | Contenu |
+| --- | --- | --- |
+| `.sdkmanrc` | [SDKMAN!](https://sdkman.io) (`sdk env install`), mise | JDK Temurin 21 |
+| `.nvmrc` | nvm (`nvm use`), fnm, mise, Volta | Node.js 24 |
+| `backend/gradle/wrapper/` | `./gradlew` | Gradle 8.14 |
+
+`.gitattributes` force les fins de ligne LF (CRLF pour les `.bat`), `.vscode/extensions.json` recommande les extensions utiles et `.github/dependabot.yml` propose chaque semaine les mises à jour Gradle, npm, Docker et GitHub Actions.
+
 ## Lancement local
 
 ```bash

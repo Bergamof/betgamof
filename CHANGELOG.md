@@ -11,6 +11,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 - Frontend SvelteKit reprenant le design « Pelouse » : tableau de bord, paris (liste et ajout), montantes (création et suivi), bankrolls, statistiques, journal ; mises en page mobile et desktop.
 - Connexion par mot de passe, proxy serveur vers l'API protégée par jeton.
 - Dockerfiles multi-stage, `compose.yaml`, CI GitHub Actions.
+- Fichiers d'autoconfiguration : `.sdkmanrc` (JDK 21 Temurin), `.nvmrc` (Node 24), `.gitattributes`, `backend/gradle.properties` (build parallèle et cache), recommandations d'extensions VS Code, Dependabot.
 
 ### Changed
 

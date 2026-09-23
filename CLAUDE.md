@@ -41,6 +41,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - 2026-09-23 — Effet d'une montante sur sa bankroll = sécurisé − engagé + (capital si mise non exclue ou montante terminée). Une relance réengage le capital de départ.
 - 2026-09-23 — Kelly : proba = 1/cote corrigée par l'historique de la tranche de cote (lissage, poids 10), puis fraction de Kelly de la bankroll.
 - 2026-09-23 — Architecture hexagonale en modules Gradle (domain / application / adapters / app) : le compilateur interdit les dépendances vers l'extérieur ; le domaine et les use cases ne connaissent ni Ktor, ni Exposed, ni la sérialisation.
+- 2026-09-23 — Versions d'outils épinglées dans `.sdkmanrc` (JDK) et `.nvmrc` (Node) ; la CI les lit (`java-version-file`, `node-version-file`) : changer de version = modifier ces fichiers, plus les images des Dockerfiles.
 - 2026-09-23 — Auth : mot de passe unique côté SvelteKit + jeton partagé SvelteKit → API ; l'API n'est pas exposée publiquement.
 
 ## Pièges et conventions spécifiques
