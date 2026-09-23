@@ -1,0 +1,21 @@
+build:
+  maxIssues: 0
+
+style:
+  MaxLineLength:
+    # Same limit as ktlint (ktlint_official code style).
+    maxLineLength: 140
+  MagicNumber:
+    ignoreEnums: true
+    ignorePropertyDeclaration: true
+    ignoreNumbers: ['-1', '0', '1', '2', '100', '100.0']
+    # Demo seed and simulated odds catalog are fixture data.
+    excludes: ['**/test/**', '**/seed/**', '**/events/**']
+
+complexity:
+  LongParameterList:
+    excludes: ['**/test/**', '**/seed/**', '**/events/**']
+  LongMethod:
+    excludes: ['**/events/**']
+  TooManyFunctions:
+    excludes: ['**/test/**', '**/seed/**']
