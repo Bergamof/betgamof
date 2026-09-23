@@ -14,4 +14,5 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 
 ### Changed
 
+- Backend réorganisé en architecture hexagonale : modules Gradle `domain`, `application` (ports et cas d'usage), `adapters/http`, `adapters/persistence`, `adapters/odds` et `app` ; contrat JSON de l'API inchangé.
 - Licence passée de GPL-3.0 à AGPL-3.0.

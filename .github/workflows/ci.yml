@@ -31,7 +31,7 @@ jobs:
       - name: Test
         run: ./gradlew --no-daemon test
       - name: Build
-        run: ./gradlew --no-daemon installDist
+        run: ./gradlew --no-daemon :app:installDist
 
   frontend:
     name: Frontend (SvelteKit)

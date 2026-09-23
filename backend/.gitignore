@@ -1,4 +1,6 @@
 .gradle/
-build/
+**/build/
+**/.gradle/
 .kotlin/
+**/.kotlin/
 data/

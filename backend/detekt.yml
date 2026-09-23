@@ -9,13 +9,13 @@ style:
     ignoreEnums: true
     ignorePropertyDeclaration: true
     ignoreNumbers: ['-1', '0', '1', '2', '100', '100.0']
-    # Demo seed and simulated odds catalog are fixture data.
-    excludes: ['**/test/**', '**/seed/**', '**/events/**']
+    # Demo seed (app/seed) and simulated odds catalog (adapters/odds) are fixture data.
+    excludes: ['**/test/**', '**/seed/**', '**/adapter/odds/**']
 
 complexity:
   LongParameterList:
-    excludes: ['**/test/**', '**/seed/**', '**/events/**']
+    excludes: ['**/test/**', '**/seed/**', '**/adapter/odds/**']
   LongMethod:
-    excludes: ['**/events/**']
+    excludes: ['**/adapter/odds/**']
   TooManyFunctions:
     excludes: ['**/test/**', '**/seed/**']

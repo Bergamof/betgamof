@@ -17,8 +17,19 @@ Les cotes « depuis un événement » viennent pour l'instant d'un **catalogue s
 
 | Dossier     | Rôle                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------- |
-| `backend/`  | API REST Kotlin 2 / Ktor 3, SQLite (Exposed + migrations Flyway), protégée par un jeton   |
+| `backend/`  | API REST Kotlin 2 en architecture hexagonale (voir ci-dessous), SQLite, protégée par un jeton |
 | `frontend/` | SvelteKit 2 / Svelte 5 (adapter-node) : pages, connexion par mot de passe, proxy vers l'API |
+
+Le backend est découpé en modules Gradle dont les dépendances pointent uniquement vers le domaine :
+
+| Module                  | Rôle                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `domain`                | Règles métier en Kotlin pur (paris, montantes, soldes, Kelly, statistiques)     |
+| `application`           | Cas d'usage, ports entrants (use cases) et sortants (repositories, cotes)       |
+| `adapters/http`         | Adaptateur entrant : API REST Ktor, DTO JSON, authentification                  |
+| `adapters/persistence`  | Adaptateur sortant : SQLite via Exposed + migrations Flyway                     |
+| `adapters/odds`         | Adaptateur sortant : catalogue d'événements et de cotes (simulé pour l'instant) |
+| `app`                   | Racine de composition : configuration, câblage, point d'entrée, données de démo |
 
 Le navigateur ne parle qu'au serveur SvelteKit ; celui-ci appelle l'API avec le jeton partagé, qui ne quitte jamais le serveur.
 
@@ -33,7 +44,7 @@ Le navigateur ne parle qu'au serveur SvelteKit ; celui-ci appelle l'API avec le 
 ```bash
 # 1. API (port 8080) avec des données de démonstration
 cd backend
-BETGAMOF_API_TOKEN=dev BETGAMOF_SEED_DEMO=true ./gradlew run
+BETGAMOF_API_TOKEN=dev BETGAMOF_SEED_DEMO=true ./gradlew :app:run
 
 # 2. Frontend (port 5173)
 cd frontend
@@ -70,7 +81,7 @@ L'app est servie sur http://localhost:3000 ; l'API n'est pas exposée hors du r�
 
 ```bash
 # Backend : ktlint + detekt, tests JUnit 5, build
-cd backend && ./gradlew ktlintCheck detekt test installDist
+cd backend && ./gradlew ktlintCheck detekt test :app:installDist
 
 # Frontend : Prettier + ESLint, svelte-check, Vitest, build
 cd frontend && npm run lint && npm run check && npm test && npm run build
