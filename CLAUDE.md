@@ -8,18 +8,19 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - Déploiement : Dockerfiles multi-stage (`backend/`, `frontend/`), `compose.yaml` (API non exposée, volume `betgamof-data`).
 
 ## Commandes
-- Backend (dans `backend/`) : lint `./gradlew ktlintCheck detekt` (format : `ktlintFormat`) · tests `./gradlew test` (un module : `./gradlew :domain:test`, un test : `./gradlew :domain:test --tests '*MontanteEngineTest'`) · build `./gradlew :app:installDist` · run `BETGAMOF_API_TOKEN=dev BETGAMOF_SEED_DEMO=true ./gradlew :app:run`.
+- Backend (dans `backend/`) : lint `./gradlew ktlintCheck detekt detektTestFixtures` (format : `ktlintFormat`) · tests `./gradlew test` (un module : `./gradlew :domain:test`, un test : `./gradlew :domain:test --tests '*MontanteEngineTest'`) · build `./gradlew :app:installDist` · run `BETGAMOF_API_TOKEN=dev BETGAMOF_SEED_DEMO=true ./gradlew :app:run`.
 - Frontend (dans `frontend/`) : lint `npm run lint` (format : `npm run format`) · types `npm run check` · tests `npm test` (un fichier : `npx vitest run src/lib/format.spec.ts`) · build `npm run build` · dev `npm run dev` (lit `frontend/.env`, voir `.env.example`).
 - Docker : `cp .env.example .env && docker compose up -d --build`.
 
 ## Architecture
 - `backend/` — hexagonale, dépendances uniquement vers l'intérieur (garanties par les modules Gradle) :
-  - `domain/` — Kotlin pur (aucune dépendance hors stdlib) : `Money` (centimes), `Bet`, `Montante*`, `MontantePlanner` (aperçu, cote requise), `MontanteEngine` (rejoue les paris d'une montante), `BankrollLedger` (soldes), `KellyAdvisor`, `Stats`, `DisciplineRule`, `SportEvent`.
-  - `application/` — dépend de `domain` seul. `port/inbound/UseCases.kt` (ports primaires : `BankrollUseCases`, `BetUseCases`, `MontanteUseCases`, `InsightUseCases`, `EventUseCases`), `port/outbound/` (ports secondaires : repositories, `EventCatalog`), `service/` (implémentations ; `PortfolioSnapshot` = bankrolls + paris + états de montantes dérivés), `model/Views.kt` (read models sans annotation), `Errors.kt`.
-  - `adapters/http/` — adaptateur primaire Ktor : `HttpApi.kt` (`betgamofApi(useCases, token)`), routes, DTO JSON `*Json.kt` + mappers, auth bearer, erreurs → HTTP. Seul module qui connaît kotlinx.serialization.
-  - `adapters/persistence/` — adaptateur secondaire Exposed/SQLite : `SqlitePersistence` (façade publique), repositories et tables `internal` ; migrations Flyway dans `src/main/resources/db/migration/`.
+  - `domain/` — Kotlin pur (aucune dépendance hors stdlib), **porte toutes les règles** : identifiants typés (`Ids.kt`), erreurs (`DomainErrors.kt`), `Money` (centimes), objets valeur normalisés par fabrique (`BankrollSettings.of`, `NewBet.of`, `Selection.of`, `MontanteConfig.of`), comportements des entités (`Bet.place/amend/settle/ensureDeletable`, `Bankroll.open/reconfigure`, `Montante.start`, `TrackedMontante.placePalier/close` + indicateurs dérivés), `Portfolio` (bankrolls + paris + montantes suivies, positions), `MontantePlanner`, `MontanteEngine` (rejoue les paris d'une montante), `BankrollLedger`, `KellyAdvisor`, `StatsCalculator` (`SegmentKey`), `DisciplineRule`, `SportEvent`.
+  - `application/` — dépend de `domain` seul. `port/inbound/` (ports primaires `UseCases.kt` + commandes `Commands.kt`), `port/outbound/` (ports secondaires : repositories d'agrégats `findAll/findById/add/save/remove`, `TransactionRunner`, `EventCatalog`), `service/` (orchestration : transaction → charger → appeler le domaine → sauvegarder → vue), `model/Views.kt` (read models structurés, sans libellé), `NotFoundException`. `src/testFixtures/` : fakes en mémoire (`fake/`) et suites de contrat des ports (`contract/`).
+  - `adapters/http/` — adaptateur primaire Ktor : `HttpApi.kt` (`betgamofApi(useCases, token)`), routes, requêtes → commandes, DTO JSON `*Json.kt` + mappers (libellés d'affichage), enums de contrat propres à l'API, auth bearer, erreurs → HTTP. Seul module qui connaît kotlinx.serialization.
+  - `adapters/persistence/` — adaptateur secondaire Exposed/SQLite : `SqlitePersistence` (façade publique : repositories + `transactions`), repositories et tables `internal`, codes d'enum explicites ; migrations Flyway dans `src/main/resources/db/migration/`.
   - `adapters/odds/` — adaptateur secondaire : catalogue d'événements **simulé** (`SimulatedEventCatalog` implémente `EventCatalog`).
-  - `app/` — racine de composition : `Application.kt` (câblage adaptateurs → services → API), `config/AppConfig.kt`, `seed/DemoSeeder.kt`, `logback.xml`, test d'intégration HTTP de bout en bout.
+  - `adapters/demo/` — adaptateur primaire : `DemoSeeder` remplit une base vide en appelant les use cases, avec une horloge réglable pour dater l'historique.
+  - `app/` — racine de composition : `Application.kt` (câblage adaptateurs → services → API), `config/AppConfig.kt`, `logback.xml`, test d'intégration HTTP de bout en bout, tests d'architecture Konsist (`architecture/`).
 - `frontend/src/`
   - `hooks.server.ts` — garde d'authentification (cookie de session HMAC du mot de passe).
   - `lib/server/` — appels à l'API côté serveur (`getJson`), auth. `routes/api/[...path]` — proxy navigateur → API (le jeton ne sort jamais du serveur).
@@ -41,15 +42,18 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - 2026-09-23 — Effet d'une montante sur sa bankroll = sécurisé − engagé + (capital si mise non exclue ou montante terminée). Une relance réengage le capital de départ.
 - 2026-09-23 — Kelly : proba = 1/cote corrigée par l'historique de la tranche de cote (lissage, poids 10), puis fraction de Kelly de la bankroll.
 - 2026-09-23 — Architecture hexagonale en modules Gradle (domain / application / adapters / app) : le compilateur interdit les dépendances vers l'extérieur ; le domaine et les use cases ne connaissent ni Ktor, ni Exposed, ni la sérialisation.
+- 2026-09-26 — Audit hexagonal appliqué : règles et transitions dans le domaine (erreurs typées `InvalidValueException` → 400, `InvalidTransitionException` → 409 ; `IllegalArgumentException` = bug → 500), ports secondaires orientés agrégats, `TransactionRunner` autour de chaque use case, commandes en entrée, contrats externes (JSON, codes SQL) découplés des noms d'enum, libellés produits par l'adaptateur HTTP, seeder passant par les use cases.
 - 2026-09-23 — Versions d'outils épinglées dans `.sdkmanrc` (JDK) et `.nvmrc` (Node) ; la CI les lit (`java-version-file`, `node-version-file`) : changer de version = modifier ces fichiers, plus les images des Dockerfiles.
 - 2026-09-23 — Auth : mot de passe unique côté SvelteKit + jeton partagé SvelteKit → API ; l'API n'est pas exposée publiquement.
 
 ## Pièges et conventions spécifiques
 - Exposed 1.x : imports `org.jetbrains.exposed.v1.core/jdbc`, opérateurs top-level (`import org.jetbrains.exposed.v1.core.eq`).
 - Une classe `@Serializable` ne doit pas avoir de `companion object` privé (lookup du serializer cassé) : constantes au niveau fichier.
-- Nouveau champ exposé par l'API : l'ajouter au read model (`application/model/Views.kt`), au DTO `adapters/http/*Json.kt` + son mapper `toJson()`, puis à `frontend/src/lib/api/types.ts`.
-- Tests des use cases : fakes en mémoire des ports dans `application/src/test/.../InMemoryRepositories.kt` (pas de base de données).
-- detekt : `MaxLineLength` = 140 (aligné sur ktlint) ; `seed/` et `adapter/odds/` sont des données, exclues de MagicNumber/LongParameterList.
+- Nouveau champ exposé par l'API : l'ajouter au read model (`application/model/Views.kt`), au DTO `adapters/http/*Json.kt` + son mapper `toJson()`, puis à `frontend/src/lib/api/types.ts`. Nouvelle valeur d'enum : la mapper explicitement dans l'enum de contrat HTTP et dans les codes SQL (sinon erreur de compilation sur le `when`).
+- Nouvelle règle métier : dans le domaine (méthode d'entité ou fabrique) avec `ensureValid`/`ensureTransition`, jamais dans un service ou un adaptateur. Nouveau use case mutateur : l'envelopper dans `transactions.inTransaction { }`.
+- Tests des use cases : fakes en mémoire des ports (`application/src/testFixtures/.../fake/`), qui passent les mêmes suites de contrat que SQLite (`.../contract/`). Toute nouvelle méthode de port = un cas dans la suite de contrat.
+- Objets valeur à constructeur privé (`@ConsistentCopyVisibility`) : les créer via `of(...)`, qui normalise (trim) puis valide.
+- detekt : `MaxLineLength` = 140 (aligné sur ktlint) ; `adapter/demo/` et `adapter/odds/` sont des données, exclues de MagicNumber/LongParameterList.
 - ESLint Svelte impose `resolve()` de `$app/paths` pour tout `href`/`goto` : `href={resolve('/paris')}`, `href="{resolve('/paris')}?ajout=1"`, `resolve('/(app)/montantes/[id]', { id })`, `goto(resolve(\`/statistiques?${q}\`))`.
 - `$state` littéral : typer via générique (`$state<MontanteMode>('OBJECTIVE')`) sinon TS rétrécit le type.
 - Props servant de valeur initiale d'un formulaire : lire dans `untrack(...)`.
@@ -57,7 +61,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - Intl `fr-FR` utilise des espaces insécables fines (U+202F) : les normaliser dans les assertions de test.
 
 ## État du projet
-- Fait : API complète en architecture hexagonale + tests (domaine, use cases avec fakes, adaptateurs SQLite et cotes, intégration HTTP), toutes les pages du design (mobile + desktop), connexion, Docker, CI.
+- Fait : API complète en architecture hexagonale (audit du 2026-09-26 appliqué) + tests (domaine, use cases avec fakes, contrats des ports, adaptateurs SQLite, HTTP et cotes, architecture Konsist, intégration HTTP), toutes les pages du design (mobile + desktop), connexion, Docker, CI.
 - Prochaines étapes possibles : fournisseur de cotes réel derrière `EventSource`, dépôts/retraits sur bankroll, PWA/offline, édition des sélections d'un pari.
 
 ## Licence

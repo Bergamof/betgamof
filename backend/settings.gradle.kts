@@ -13,5 +13,6 @@ include(
     "adapters:http",
     "adapters:persistence",
     "adapters:odds",
+    "adapters:demo",
     "app",
 )

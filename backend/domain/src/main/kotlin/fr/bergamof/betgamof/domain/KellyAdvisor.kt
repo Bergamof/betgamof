@@ -23,6 +23,7 @@ object KellyAdvisor {
         kellyFraction: Double,
         history: List<Bet>,
     ): KellyAdvice {
+        ensureValid(odds > 1.0) { "La cote doit être supérieure à 1" }
         val probability = estimateProbability(odds, history)
         val netOdds = odds - 1
         val fullKelly = (netOdds * probability - (1 - probability)) / netOdds
@@ -44,18 +45,18 @@ object KellyAdvisor {
     }
 }
 
+/** Odds bands used to calibrate the bettor and to break statistics down. [max] is exclusive; null means open-ended. */
 enum class OddsRange(
     val min: Double,
-    val max: Double,
-    val label: String,
+    val max: Double?,
 ) {
-    SAFE(1.0, 1.5, "1.0 – 1.5"),
-    MEDIUM(1.5, 2.0, "1.5 – 2.0"),
-    VALUE(2.0, 3.0, "2.0 – 3.0"),
-    LONG_SHOT(3.0, Double.MAX_VALUE, "3.0 +"),
+    SAFE(1.0, 1.5),
+    MEDIUM(1.5, 2.0),
+    VALUE(2.0, 3.0),
+    LONG_SHOT(3.0, null),
     ;
 
     companion object {
-        fun of(odds: Double) = entries.first { odds < it.max }
+        fun of(odds: Double) = entries.first { it.max == null || odds < it.max }
     }
 }

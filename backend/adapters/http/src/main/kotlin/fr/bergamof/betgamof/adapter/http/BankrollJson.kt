@@ -1,7 +1,6 @@
 package fr.bergamof.betgamof.adapter.http
 
 import fr.bergamof.betgamof.application.model.BankrollView
-import fr.bergamof.betgamof.domain.BankrollColor
 import kotlinx.serialization.Serializable
 
 // JSON contract of the REST API: amounts in euros, instants in ISO-8601.
@@ -11,7 +10,7 @@ import kotlinx.serialization.Serializable
 data class BankrollJson(
     val id: Long,
     val name: String,
-    val color: BankrollColor,
+    val color: BankrollColorJson,
     val initialBalance: Double,
     val balance: Double,
     val stopLoss: Double?,
@@ -29,9 +28,9 @@ data class BankrollJson(
 
 fun BankrollView.toJson() =
     BankrollJson(
-        id = id,
+        id = id.value,
         name = name,
-        color = color,
+        color = color.toJson(),
         initialBalance = initialBalance.toEuros(),
         balance = balance.toEuros(),
         stopLoss = stopLoss?.toEuros(),

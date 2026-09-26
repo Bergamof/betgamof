@@ -9,6 +9,7 @@ serialization = "1.11.0"
 junit = "5.13.4"
 ktlint-plugin = "14.2.0"
 detekt = "1.23.8"
+konsist = "0.17.3"
 
 [libraries]
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
@@ -29,6 +30,7 @@ serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-jso
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
 
 # Gradle plugins used by the convention plugin in buildSrc.
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

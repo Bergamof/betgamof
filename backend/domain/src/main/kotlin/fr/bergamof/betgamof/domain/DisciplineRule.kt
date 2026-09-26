@@ -17,18 +17,25 @@ enum class RuleKind {
 }
 
 data class DisciplineRule(
-    val id: Long,
+    val id: RuleId,
     val kind: RuleKind,
     val param: Int,
 ) {
     init {
-        require(kind == RuleKind.SINGLE_ACTIVE_MONTANTE || param > 0) { "Le paramètre de la règle doit être positif" }
+        ensureValid(kind == RuleKind.SINGLE_ACTIVE_MONTANTE || param > 0) { "Le paramètre de la règle doit être positif" }
+    }
+
+    companion object {
+        fun define(
+            kind: RuleKind,
+            param: Int,
+        ) = DisciplineRule(RuleId.NEW, kind, param)
     }
 }
 
 data class RuleContext(
     val bets: List<Bet>,
-    val balances: Map<Long, Money>,
+    val balances: Map<BankrollId, Money>,
     val activeMontantes: Int,
     val now: Instant,
 )
@@ -51,7 +58,7 @@ object RuleEvaluator {
     private fun exceedsShare(
         bet: Bet,
         maxPct: Int,
-        balances: Map<Long, Money>,
+        balances: Map<BankrollId, Money>,
     ): Boolean {
         val balance = balances[bet.bankrollId] ?: return false
         return balance.isPositive && bet.stake / balance * 100 > maxPct

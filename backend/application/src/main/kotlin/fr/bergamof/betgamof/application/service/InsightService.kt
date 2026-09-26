@@ -6,13 +6,17 @@ import fr.bergamof.betgamof.application.model.ProfitPointView
 import fr.bergamof.betgamof.application.model.RuleView
 import fr.bergamof.betgamof.application.model.StatsView
 import fr.bergamof.betgamof.application.model.StreakView
+import fr.bergamof.betgamof.application.port.inbound.AddRuleCommand
 import fr.bergamof.betgamof.application.port.inbound.InsightUseCases
 import fr.bergamof.betgamof.application.port.inbound.StatsPeriod
 import fr.bergamof.betgamof.application.port.outbound.RuleRepository
-import fr.bergamof.betgamof.domain.Money
+import fr.bergamof.betgamof.application.port.outbound.TransactionRunner
+import fr.bergamof.betgamof.domain.BankrollId
+import fr.bergamof.betgamof.domain.DisciplineRule
 import fr.bergamof.betgamof.domain.RuleContext
 import fr.bergamof.betgamof.domain.RuleEvaluator
-import fr.bergamof.betgamof.domain.RuleKind
+import fr.bergamof.betgamof.domain.RuleId
+import fr.bergamof.betgamof.domain.Stats
 import fr.bergamof.betgamof.domain.StatsCalculator
 import java.time.Clock
 import java.time.Duration
@@ -22,54 +26,81 @@ import java.time.ZoneId
 class InsightService(
     private val portfolio: PortfolioLoader,
     private val rules: RuleRepository,
+    private val transactions: TransactionRunner,
     private val clock: Clock,
     private val zone: ZoneId,
 ) : InsightUseCases {
     override fun stats(
         period: StatsPeriod,
-        bankrollId: Long?,
-    ): StatsView {
-        val snapshot = portfolio.load()
-        bankrollId?.let(snapshot::bankroll)
-        val since = period.days?.let { clock.instant() - Duration.ofDays(it) }
-        val bets = snapshot.bets.filter { (bankrollId == null || it.bankrollId == bankrollId) && (since == null || it.placedAt >= since) }
-        val montantes =
-            snapshot.montantes
-                .filter { (montante, _) -> bankrollId == null || montante.config.bankrollId == bankrollId }
-                .filter { (montante, _) -> since == null || montante.createdAt >= since }
-                .map { it.second }
-        val totalBalance =
-            snapshot.positions
-                .filterKeys { bankrollId == null || it == bankrollId }
-                .values
-                .map { it.balance }
-                .fold(Money.ZERO, Money::plus)
-        val stats = StatsCalculator.compute(bets, montantes, zone)
-        return StatsView(
-            settledCount = stats.settledCount,
-            openCount = stats.openCount,
-            staked = stats.staked,
-            profit = stats.profit,
-            yield = stats.yield,
-            won = stats.won,
-            lost = stats.lost,
-            hitRate = stats.hitRate,
-            averageOdds = stats.averageOdds,
-            breakEvenOdds = stats.breakEvenOdds,
-            averageStake = stats.averageStake,
-            averageStakeShare = if (totalBalance.isPositive) stats.averageStake / totalBalance else 0.0,
-            bestWinStreak = stats.bestWinStreak,
-            currentStreak = stats.currentStreak?.let { StreakView(it.won, it.length) },
-            maxDrawdown = stats.maxDrawdown,
-            firstBetAt = stats.firstBetAt,
-            profitCurve = stats.profitCurve.map { ProfitPointView(it.at, it.cumulativeProfit) },
-            bySport = stats.bySport.map { it.toView() },
-            byOddsRange = stats.byOddsRange.map { it.toView() },
-            byMarket = stats.byMarket.map { it.toView() },
-            lateNight = stats.lateNight.toView(),
-            placedDayBefore = stats.placedDayBefore.toView(),
+        bankrollId: BankrollId?,
+    ): StatsView =
+        transactions.inTransaction {
+            val snapshot = portfolio.load()
+            bankrollId?.let(snapshot::requireBankroll)
+            val since = period.days?.let { clock.instant() - Duration.ofDays(it) }
+            val bets =
+                snapshot.bets.filter {
+                    (bankrollId == null || it.bankrollId == bankrollId) && (since == null || it.placedAt >= since)
+                }
+            val montantes =
+                snapshot.montantes
+                    .filter { bankrollId == null || it.config.bankrollId == bankrollId }
+                    .filter { since == null || it.montante.createdAt >= since }
+                    .map { it.state }
+            StatsCalculator.compute(bets, montantes, snapshot.totalBalance(bankrollId), zone).toView()
+        }
+
+    override fun rules(): List<RuleView> =
+        transactions.inTransaction {
+            val snapshot = portfolio.load()
+            val context =
+                RuleContext(
+                    bets = snapshot.bets,
+                    balances = snapshot.positions.mapValues { it.value.balance },
+                    activeMontantes = snapshot.montantes.count { it.state.isActive },
+                    now = clock.instant(),
+                )
+            rules.findAll().map { RuleView(it.id, it.kind, it.param, RuleEvaluator.isRespected(it, context)) }
+        }
+
+    override fun addRule(command: AddRuleCommand): List<RuleView> =
+        transactions.inTransaction {
+            rules.add(DisciplineRule.define(command.kind, command.param))
+            rules()
+        }
+
+    override fun deleteRule(id: RuleId) =
+        transactions.inTransaction {
+            rules.findById(id) ?: throw NotFoundException("Règle ${id.value} introuvable")
+            rules.remove(id)
+        }
+
+    private fun Stats.toView() =
+        StatsView(
+            settledCount = settledCount,
+            openCount = openCount,
+            staked = staked,
+            profit = profit,
+            yield = yield,
+            won = won,
+            lost = lost,
+            hitRate = hitRate,
+            averageOdds = averageOdds,
+            breakEvenOdds = breakEvenOdds,
+            averageStake = averageStake,
+            averageStakeShare = averageStakeShare,
+            bestWinStreak = bestWinStreak,
+            currentStreak = currentStreak?.let { StreakView(it.won, it.length) },
+            maxDrawdown = maxDrawdown,
+            firstBetAt = firstBetAt,
+            profitCurve = profitCurve.map { ProfitPointView(it.at, it.cumulativeProfit) },
+            bySport = bySport.map { it.toView() },
+            byOddsRange = byOddsRange.map { it.toView() },
+            byMarket = byMarket.map { it.toView() },
+            lateNight = lateNight.toView(),
+            placedDayBefore = placedDayBefore.toView(),
             montantes =
-                stats.montantes.let {
+                montantes.let {
                     MontanteSummaryView(
                         it.launched,
                         it.succeeded,
@@ -81,30 +112,4 @@ class InsightService(
                     )
                 },
         )
-    }
-
-    override fun rules(): List<RuleView> {
-        val snapshot = portfolio.load()
-        val context =
-            RuleContext(
-                bets = snapshot.bets,
-                balances = snapshot.positions.mapValues { it.value.balance },
-                activeMontantes = snapshot.montantes.count { it.second.isActive },
-                now = clock.instant(),
-            )
-        return rules.findAll().map { RuleView(it.id, it.kind, it.param, RuleEvaluator.isRespected(it, context)) }
-    }
-
-    override fun addRule(
-        kind: RuleKind,
-        param: Int,
-    ): List<RuleView> {
-        require(kind == RuleKind.SINGLE_ACTIVE_MONTANTE || param > 0) { "Le paramètre de la règle doit être positif" }
-        rules.create(kind, param)
-        return rules()
-    }
-
-    override fun deleteRule(id: Long) {
-        if (!rules.delete(id)) throw NotFoundException("Règle $id introuvable")
-    }
 }

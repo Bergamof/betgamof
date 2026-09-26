@@ -1,88 +1,84 @@
 package fr.bergamof.betgamof.adapter.persistence
 
+import fr.bergamof.betgamof.domain.Bankroll
 import fr.bergamof.betgamof.domain.BankrollColor
+import fr.bergamof.betgamof.domain.BankrollId
 import fr.bergamof.betgamof.domain.BankrollSettings
 import fr.bergamof.betgamof.domain.BetStatus
 import fr.bergamof.betgamof.domain.BetType
+import fr.bergamof.betgamof.domain.DisciplineRule
 import fr.bergamof.betgamof.domain.Money
-import fr.bergamof.betgamof.domain.MontanteConfig
 import fr.bergamof.betgamof.domain.MontanteMode
-import fr.bergamof.betgamof.domain.NewBet
 import fr.bergamof.betgamof.domain.RuleKind
-import fr.bergamof.betgamof.domain.Selection
-import fr.bergamof.betgamof.domain.Settlement
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.sql.DriverManager
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 
 class SqlitePersistenceTest {
     @TempDir
     lateinit var dir: Path
 
-    private val now = Instant.parse("2026-09-11T16:00:00Z")
+    private val path get() = dir.resolve("test.db").toString()
 
-    private fun persistence() = SqlitePersistence(dir.resolve("test.db").toString())
+    private val bankroll =
+        Bankroll(
+            BankrollId.NEW,
+            BankrollSettings.of("Principale", BankrollColor.CIEL, Money.euros(100)),
+            Instant.parse("2026-09-11T16:00:00Z"),
+        )
 
-    @Test
-    fun `bankrolls round-trip through SQLite`() {
-        val persistence = persistence()
-        val settings = BankrollSettings("Principale", BankrollColor.CIEL, Money.euros(1088.5), Money.euros(900), 0.25, Money.euros(5))
-
-        val id = persistence.bankrolls.create(settings, now)
-
-        assertEquals(settings, persistence.bankrolls.find(id)?.settings)
-        assertEquals(now, persistence.bankrolls.find(id)?.createdAt)
+    private fun execute(sql: String) {
+        DriverManager.getConnection("jdbc:sqlite:$path").use { it.createStatement().use { statement -> statement.executeUpdate(sql) } }
     }
 
     @Test
-    fun `bets keep their selections, settlement and montante link`() {
-        val persistence = persistence()
-        val bankrollId = persistence.bankrolls.create(BankrollSettings("B", BankrollColor.GAZON, Money.euros(100), null, 0.25, null), now)
-        val montanteId =
-            persistence.montantes.create(
-                MontanteConfig("M", bankrollId, Money.euros(50), 1.8, MontanteMode.STEPS, null, 4, true, 20, 1),
-                now,
-            )
-        val selections =
-            listOf(
-                Selection("a", "A – B", "Football", "Ligue 1", "Résultat final", "A", 1.5),
-                Selection(null, "C – D", "Tennis", "ATP", "Vainqueur", "C", 2.0),
-            )
-        val betId =
-            persistence.bets.create(
-                NewBet(bankrollId, montanteId, BetType.COMBINE, "Unibet", Money.euros(50), 3.0, now.plusSeconds(60), selections),
-                now,
-            )
-
-        persistence.bets.settle(betId, Settlement(BetStatus.CASHOUT, Money.euros(72.5)), now.plusSeconds(120))
-
-        val bet = persistence.bets.find(betId)!!
-        assertEquals(selections, bet.selections)
-        assertEquals(montanteId, bet.montanteId)
-        assertEquals(BetStatus.CASHOUT, bet.status)
-        assertEquals(Money.euros(72.5), bet.cashout)
-        assertEquals(now.plusSeconds(120), bet.settledAt)
+    fun `stored enum codes are the ones existing databases contain`() {
+        assertEquals(setOf("GAZON", "CIEL", "CITRON", "ORANGE", "BRIQUE"), bankrollColorCodes.codes)
+        assertEquals(setOf("SIMPLE", "COMBINE", "SYSTEME"), betTypeCodes.codes)
+        assertEquals(setOf("OPEN", "WON", "LOST", "VOID", "CASHOUT"), betStatusCodes.codes)
+        assertEquals(setOf("OBJECTIVE", "STEPS", "FREE"), montanteModeCodes.codes)
+        assertEquals(setOf("MAX_STAKE_PCT", "PAUSE_AFTER_LOSSES", "SINGLE_ACTIVE_MONTANTE"), ruleKindCodes.codes)
     }
 
     @Test
-    fun `montantes can be closed and rules deleted`() {
-        val persistence = persistence()
-        val bankrollId = persistence.bankrolls.create(BankrollSettings("B", BankrollColor.GAZON, Money.euros(100), null, 0.25, null), now)
-        val montanteId =
-            persistence.montantes.create(
-                MontanteConfig("M", bankrollId, Money.euros(50), 1.8, MontanteMode.FREE, null, null, false, 0, 0),
-                now,
-            )
-        assertNull(persistence.montantes.find(montanteId)?.closedAt)
+    fun `every constant round-trips through its stored code`() {
+        BankrollColor.entries.forEach { assertEquals(it, bankrollColorCodes.decode(bankrollColorCodes.encode(it))) }
+        BetType.entries.forEach { assertEquals(it, betTypeCodes.decode(betTypeCodes.encode(it))) }
+        BetStatus.entries.forEach { assertEquals(it, betStatusCodes.decode(betStatusCodes.encode(it))) }
+        MontanteMode.entries.forEach { assertEquals(it, montanteModeCodes.decode(montanteModeCodes.encode(it))) }
+        RuleKind.entries.forEach { assertEquals(it, ruleKindCodes.decode(ruleKindCodes.encode(it))) }
+    }
 
-        persistence.montantes.close(montanteId, now)
-        val ruleId = persistence.rules.create(RuleKind.MAX_STAKE_PCT, 3)
+    @Test
+    fun `an unknown stored code fails with the column and the value`() {
+        val persistence = SqlitePersistence(path)
+        persistence.bankrolls.add(bankroll)
+        execute("UPDATE bankrolls SET color = 'VIOLET'")
 
-        assertEquals(now, persistence.montantes.find(montanteId)?.closedAt)
-        assertEquals(true, persistence.rules.delete(ruleId))
-        assertEquals(emptyList(), persistence.rules.findAll())
+        val error = assertFailsWith<IllegalStateException> { persistence.bankrolls.findAll() }
+
+        assertEquals("Unknown code 'VIOLET' in column bankrolls.color", error.message)
+    }
+
+    @Test
+    fun `an unknown rule kind fails with the column and the value`() {
+        val persistence = SqlitePersistence(path)
+        val rule = persistence.rules.add(DisciplineRule.define(RuleKind.MAX_STAKE_PCT, 3))
+        execute("UPDATE discipline_rules SET kind = 'max_stake'")
+
+        val error = assertFailsWith<IllegalStateException> { persistence.rules.findById(rule.id) }
+
+        assertEquals("Unknown code 'max_stake' in column discipline_rules.kind", error.message)
+    }
+
+    @Test
+    fun `data survives reopening the database file`() {
+        val stored = SqlitePersistence(path).bankrolls.add(bankroll)
+
+        assertEquals(listOf(stored), SqlitePersistence(path).bankrolls.findAll())
     }
 }

@@ -24,12 +24,15 @@ Le backend est découpé en modules Gradle dont les dépendances pointent unique
 
 | Module                  | Rôle                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| `domain`                | Règles métier en Kotlin pur (paris, montantes, soldes, Kelly, statistiques)     |
-| `application`           | Cas d'usage, ports entrants (use cases) et sortants (repositories, cotes)       |
+| `domain`                | Toutes les règles métier en Kotlin pur : paris, montantes, soldes, Kelly, stats |
+| `application`           | Cas d'usage, ports entrants (use cases, commandes) et sortants (repositories, transactions, cotes) |
 | `adapters/http`         | Adaptateur entrant : API REST Ktor, DTO JSON, authentification                  |
+| `adapters/demo`         | Adaptateur entrant : données de démonstration créées via les use cases          |
 | `adapters/persistence`  | Adaptateur sortant : SQLite via Exposed + migrations Flyway                     |
 | `adapters/odds`         | Adaptateur sortant : catalogue d'événements et de cotes (simulé pour l'instant) |
-| `app`                   | Racine de composition : configuration, câblage, point d'entrée, données de démo |
+| `app`                   | Racine de composition : configuration, câblage, point d'entrée                  |
+
+Des tests d'architecture (Konsist) vérifient les règles d'import à l'intérieur des modules, et des suites de contrat communes garantissent que les fakes en mémoire et SQLite se comportent de la même façon.
 
 Le navigateur ne parle qu'au serveur SvelteKit ; celui-ci appelle l'API avec le jeton partagé, qui ne quitte jamais le serveur.
 

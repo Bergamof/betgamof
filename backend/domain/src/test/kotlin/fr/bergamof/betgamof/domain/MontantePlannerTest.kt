@@ -33,8 +33,8 @@ class MontantePlannerTest {
 
     @Test
     fun `invalid configurations are rejected`() {
-        assertFailsWith<IllegalArgumentException> { montanteConfig(targetMultiplier = 1.0) }
-        assertFailsWith<IllegalArgumentException> { montanteConfig(mode = MontanteMode.STEPS, stepCount = 0) }
-        assertFailsWith<IllegalArgumentException> { montanteConfig(securePct = 95) }
+        assertFailsWith<InvalidValueException> { montanteConfig(targetMultiplier = 1.0) }
+        assertFailsWith<InvalidValueException> { montanteConfig(mode = MontanteMode.STEPS, stepCount = 0) }
+        assertFailsWith<InvalidValueException> { montanteConfig(securePct = 95) }
     }
 }

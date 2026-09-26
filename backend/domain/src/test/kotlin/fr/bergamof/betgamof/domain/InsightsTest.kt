@@ -19,7 +19,7 @@ class InsightsTest {
                 bet(5, 2.0, Money.euros(10), BetStatus.WON, sport = "Tennis"),
                 bet(6, 2.0, Money.euros(10), BetStatus.OPEN),
             )
-        val stats = StatsCalculator.compute(bets, emptyList(), paris)
+        val stats = StatsCalculator.compute(bets, emptyList(), Money.euros(1000), paris)
 
         assertEquals(5, stats.settledCount)
         assertEquals(Money.euros(10), stats.profit)
@@ -28,7 +28,8 @@ class InsightsTest {
         assertEquals(2, stats.bestWinStreak)
         assertEquals(Streak(won = true, length = 2), stats.currentStreak)
         assertEquals(Money.euros(20), stats.maxDrawdown)
-        assertEquals("Tennis", stats.bySport.first().label)
+        assertEquals(SegmentKey.Sport("Tennis"), stats.bySport.first().key)
+        assertEquals(0.01, stats.averageStakeShare, 1e-9)
     }
 
     @Test
@@ -51,11 +52,11 @@ class InsightsTest {
                 bet(2, 2.0, Money.euros(10), BetStatus.LOST),
                 bet(3, 2.0, Money.euros(50), BetStatus.OPEN),
             )
-        val context = RuleContext(bets, mapOf(1L to Money.euros(1000)), activeMontantes = 2, now = T0.plusSeconds(86_400))
+        val context = RuleContext(bets, mapOf(BankrollId(1) to Money.euros(1000)), activeMontantes = 2, now = T0.plusSeconds(86_400))
 
-        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(1, RuleKind.MAX_STAKE_PCT, 3), context))
-        assertEquals(true, RuleEvaluator.isRespected(DisciplineRule(2, RuleKind.MAX_STAKE_PCT, 5), context))
-        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(3, RuleKind.PAUSE_AFTER_LOSSES, 2), context))
-        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(4, RuleKind.SINGLE_ACTIVE_MONTANTE, 0), context))
+        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(RuleId(1), RuleKind.MAX_STAKE_PCT, 3), context))
+        assertEquals(true, RuleEvaluator.isRespected(DisciplineRule(RuleId(2), RuleKind.MAX_STAKE_PCT, 5), context))
+        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(RuleId(3), RuleKind.PAUSE_AFTER_LOSSES, 2), context))
+        assertEquals(false, RuleEvaluator.isRespected(DisciplineRule(RuleId(4), RuleKind.SINGLE_ACTIVE_MONTANTE, 0), context))
     }
 }

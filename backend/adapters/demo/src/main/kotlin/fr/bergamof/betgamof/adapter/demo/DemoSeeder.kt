@@ -1,22 +1,24 @@
-package fr.bergamof.betgamof.seed
+package fr.bergamof.betgamof.adapter.demo
 
-import fr.bergamof.betgamof.application.port.outbound.BankrollRepository
-import fr.bergamof.betgamof.application.port.outbound.BetRepository
-import fr.bergamof.betgamof.application.port.outbound.MontanteRepository
-import fr.bergamof.betgamof.application.port.outbound.RuleRepository
+import fr.bergamof.betgamof.application.model.BetView
+import fr.bergamof.betgamof.application.port.inbound.AddRuleCommand
+import fr.bergamof.betgamof.application.port.inbound.BankrollCommand
+import fr.bergamof.betgamof.application.port.inbound.BankrollUseCases
+import fr.bergamof.betgamof.application.port.inbound.BetUseCases
+import fr.bergamof.betgamof.application.port.inbound.InsightUseCases
+import fr.bergamof.betgamof.application.port.inbound.MontanteUseCases
+import fr.bergamof.betgamof.application.port.inbound.PlaceBetCommand
+import fr.bergamof.betgamof.application.port.inbound.SelectionCommand
+import fr.bergamof.betgamof.application.port.inbound.SettleBetCommand
+import fr.bergamof.betgamof.application.port.inbound.StartMontanteCommand
 import fr.bergamof.betgamof.domain.BankrollColor
-import fr.bergamof.betgamof.domain.BankrollSettings
+import fr.bergamof.betgamof.domain.BankrollId
 import fr.bergamof.betgamof.domain.BetStatus
 import fr.bergamof.betgamof.domain.BetType
 import fr.bergamof.betgamof.domain.Money
-import fr.bergamof.betgamof.domain.MontanteConfig
-import fr.bergamof.betgamof.domain.MontanteEngine
+import fr.bergamof.betgamof.domain.MontanteId
 import fr.bergamof.betgamof.domain.MontanteMode
-import fr.bergamof.betgamof.domain.NewBet
 import fr.bergamof.betgamof.domain.RuleKind
-import fr.bergamof.betgamof.domain.Selection
-import fr.bergamof.betgamof.domain.Settlement
-import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalTime
@@ -24,48 +26,55 @@ import java.time.ZoneId
 import kotlin.random.Random
 
 /**
- * Fills an empty database with the sample data of the design mock-ups (dates relative to today),
+ * Fills an empty installation with the sample data of the design mock-ups (dates relative to today),
  * plus three months of generated history so that statistics have something to show.
- * Enabled with BETGAMOF_SEED_DEMO=true; never touches a database that already has bankrolls.
+ * Enabled with BETGAMOF_SEED_DEMO=true; never touches an installation that already has bankrolls.
+ *
+ * A driving adapter like the REST API: it only calls the use cases. To date the history in the past,
+ * the use cases it is given are built with [clock], which it moves to each action's date before
+ * calling them, then puts back to the present.
  */
 class DemoSeeder(
-    private val bankrolls: BankrollRepository,
-    private val bets: BetRepository,
-    private val montantes: MontanteRepository,
-    private val rules: RuleRepository,
-    private val clock: Clock,
+    private val bankrolls: BankrollUseCases,
+    private val bets: BetUseCases,
+    private val montantes: MontanteUseCases,
+    private val insights: InsightUseCases,
+    private val clock: SettableClock,
     private val zone: ZoneId,
 ) {
     private val random = Random(SEED)
+    private lateinit var now: Instant
 
     fun seedIfEmpty() {
-        if (bankrolls.findAll().isNotEmpty()) return
-        val start = clock.instant() - Duration.ofDays(HISTORY_DAYS)
-        val main =
-            bankrolls.create(
-                BankrollSettings("Principale", BankrollColor.GAZON, Money.euros(1000), Money.euros(900), 0.25, null),
-                start,
-            )
+        if (bankrolls.list().isNotEmpty()) return
+        now = clock.instant()
+        try {
+            seed()
+        } finally {
+            clock.set(now)
+        }
+    }
+
+    private fun seed() {
+        clock.set(now - Duration.ofDays(HISTORY_DAYS))
+        val main = bankrolls.create(BankrollCommand("Principale", BankrollColor.GAZON, Money.euros(1000), Money.euros(900), 0.25)).id
         val funBankroll =
-            bankrolls.create(
-                BankrollSettings("Fun / longs shots", BankrollColor.CIEL, Money.euros(250), null, 0.1, Money.euros(5)),
-                start,
-            )
+            bankrolls.create(BankrollCommand("Fun / longs shots", BankrollColor.CIEL, Money.euros(250), null, 0.1, Money.euros(5))).id
         seedHistory(main, funBankroll)
         seedFinishedMontantes(main)
         seedRecentBets(main)
         seedActiveMontante(main)
-        rules.create(RuleKind.MAX_STAKE_PCT, MAX_STAKE_PCT)
-        rules.create(RuleKind.PAUSE_AFTER_LOSSES, 2)
-        rules.create(RuleKind.SINGLE_ACTIVE_MONTANTE, 0)
+        clock.set(now)
+        insights.addRule(AddRuleCommand(RuleKind.MAX_STAKE_PCT, MAX_STAKE_PCT))
+        insights.addRule(AddRuleCommand(RuleKind.PAUSE_AFTER_LOSSES, 2))
+        insights.addRule(AddRuleCommand(RuleKind.SINGLE_ACTIVE_MONTANTE, 0))
     }
 
     private fun at(
         daysAgo: Long,
         time: String,
     ): Instant =
-        clock
-            .instant()
+        now
             .atZone(zone)
             .toLocalDate()
             .minusDays(daysAgo)
@@ -74,39 +83,42 @@ class DemoSeeder(
             .toInstant()
 
     private fun place(
-        bankrollId: Long,
-        selection: Selection,
+        bankrollId: BankrollId,
+        selection: SelectionCommand,
         stake: Int,
         bookmaker: String,
         startsAt: Instant,
         result: BetStatus? = null,
-        montanteId: Long? = null,
         placedBefore: Duration = Duration.ofHours(3),
-    ): Long {
-        val bet = NewBet(bankrollId, montanteId, BetType.SIMPLE, bookmaker, Money.euros(stake), selection.odds, startsAt, listOf(selection))
+    ): BetView {
+        val bet =
+            PlaceBetCommand(bankrollId, null, BetType.SIMPLE, bookmaker, Money.euros(stake), selection.odds, startsAt, listOf(selection))
         return record(bet, startsAt - placedBefore, result)
     }
 
+    /** Places the bet at [placedAt], then settles it two hours after kick-off when a [result] is given. */
     private fun record(
-        bet: NewBet,
+        bet: PlaceBetCommand,
         placedAt: Instant,
         result: BetStatus?,
-    ): Long {
-        val id = bets.create(bet, placedAt)
-        result?.let { bets.settle(id, Settlement(it, null), bet.startsAt + Duration.ofHours(2)) }
-        return id
+    ): BetView {
+        clock.set(placedAt)
+        val placed = bets.place(bet)
+        if (result == null) return placed
+        clock.set(bet.startsAt + Duration.ofHours(2))
+        return bets.settle(placed.id, SettleBetCommand(result))
     }
 
-    private fun seedRecentBets(main: Long) {
+    private fun seedRecentBets(main: BankrollId) {
         place(main, football("Lens – Lyon", "Ligue 1", "Total de buts", "Plus de 1,5", 1.72, "lens-lyon"), 25, "Winamax", at(0, "21:00"))
         val combo =
             listOf(
-                Selection(null, "ASVEL – Monaco", "Basket", "Euroligue", "Vainqueur", "Monaco", 1.55),
-                Selection(null, "Real – Fenerbahçe", "Basket", "Euroligue", "Vainqueur", "Real", 1.50),
-                Selection(null, "Olympiakos – Baskonia", "Basket", "Euroligue", "Vainqueur", "Olympiakos", 1.87),
+                SelectionCommand(null, "ASVEL – Monaco", "Basket", "Euroligue", "Vainqueur", "Monaco", 1.55),
+                SelectionCommand(null, "Real – Fenerbahçe", "Basket", "Euroligue", "Vainqueur", "Real", 1.50),
+                SelectionCommand(null, "Olympiakos – Baskonia", "Basket", "Euroligue", "Vainqueur", "Olympiakos", 1.87),
             )
         record(
-            NewBet(main, null, BetType.COMBINE, "Unibet", Money.euros(10), COMBO_ODDS, at(0, "18:00"), combo),
+            PlaceBetCommand(main, null, BetType.COMBINE, "Unibet", Money.euros(10), COMBO_ODDS, at(0, "18:00"), combo),
             at(0, "12:00"),
             BetStatus.WON,
         )
@@ -122,9 +134,12 @@ class DemoSeeder(
         place(main, tennis("Alcaraz – Sinner", "US Open", "Alcaraz gagne", 2.30), 20, "Winamax", at(2, "22:00"), BetStatus.WON)
     }
 
-    private fun seedActiveMontante(main: Long) {
-        val config = MontanteConfig("Montante Ligue 1", main, Money.euros(160), 1.75, MontanteMode.OBJECTIVE, 3.0, null, true, 30, 3)
-        val id = montantes.create(config, at(5, "10:00"))
+    private fun seedActiveMontante(main: BankrollId) {
+        val id =
+            startMontante(
+                StartMontanteCommand("Montante Ligue 1", main, Money.euros(160), 1.75, MontanteMode.OBJECTIVE, 3.0, null, true, 30, 3),
+                at(5, "10:00"),
+            )
         val paliers =
             listOf(
                 Triple(football("Reims – Nantes", "Ligue 1", "Total de buts", "Plus de 1,5", 1.72), "Winamax", BetStatus.WON),
@@ -145,10 +160,10 @@ class DemoSeeder(
         )
     }
 
-    private fun seedFinishedMontantes(main: Long) {
+    private fun seedFinishedMontantes(main: BankrollId) {
         val succeeded =
-            montantes.create(
-                MontanteConfig("Montante Tennis", main, Money.euros(50), 1.6, MontanteMode.STEPS, null, 3, false, 20, 0),
+            startMontante(
+                StartMontanteCommand("Montante Tennis", main, Money.euros(50), 1.6, MontanteMode.STEPS, null, 3, false, 20, 0),
                 at(60, "09:00"),
             )
         listOf("Rune gagne" to 1.55, "Zverev gagne" to 1.62, "Fritz gagne" to 1.70).forEachIndexed { index, (pick, odds) ->
@@ -162,8 +177,8 @@ class DemoSeeder(
             )
         }
         val broken =
-            montantes.create(
-                MontanteConfig("Montante Liga", main, Money.euros(40), 1.7, MontanteMode.OBJECTIVE, 5.0, null, true, 30, 0),
+            startMontante(
+                StartMontanteCommand("Montante Liga", main, Money.euros(40), 1.7, MontanteMode.OBJECTIVE, 5.0, null, true, 30, 0),
                 at(40, "09:00"),
             )
         playPalier(
@@ -184,24 +199,31 @@ class DemoSeeder(
         )
     }
 
-    /** A montante bet stakes the whole current capital: read it back before placing. */
+    private fun startMontante(
+        command: StartMontanteCommand,
+        createdAt: Instant,
+    ): MontanteId {
+        clock.set(createdAt)
+        return montantes.start(command).id
+    }
+
+    /** The use case stakes the montante's whole current capital, whatever stake the command asks for. */
     private fun playPalier(
-        montanteId: Long,
-        bankrollId: Long,
-        selection: Selection,
+        montanteId: MontanteId,
+        bankrollId: BankrollId,
+        selection: SelectionCommand,
         bookmaker: String,
         startsAt: Instant,
         result: BetStatus?,
     ) {
-        val montante = requireNotNull(montantes.find(montanteId))
-        val state = MontanteEngine.replay(montante, bets.findAll().filter { it.montanteId == montanteId })
-        val bet = NewBet(bankrollId, montanteId, BetType.SIMPLE, bookmaker, state.capital, selection.odds, startsAt, listOf(selection))
+        val bet =
+            PlaceBetCommand(bankrollId, montanteId, BetType.SIMPLE, bookmaker, NOMINAL_STAKE, selection.odds, startsAt, listOf(selection))
         record(bet, startsAt - Duration.ofHours(4), result)
     }
 
     private fun seedHistory(
-        main: Long,
-        funBankroll: Long,
+        main: BankrollId,
+        funBankroll: BankrollId,
     ) {
         for (daysAgo in HISTORY_DAYS downTo RECENT_DAYS step 2) {
             val template = HISTORY_TEMPLATES[random.nextInt(HISTORY_TEMPLATES.size)]
@@ -209,7 +231,8 @@ class DemoSeeder(
             val rounded = Math.round(odds * 100) / 100.0
             val won = random.nextDouble() < WIN_EDGE / rounded
             val hour = if (random.nextInt(LATE_ONE_IN) == 0) "22:30" else "20:00"
-            val selection = Selection(null, template.event, template.sport, template.competition, template.market, template.pick, rounded)
+            val selection =
+                SelectionCommand(null, template.event, template.sport, template.competition, template.market, template.pick, rounded)
             val stake = STAKES[random.nextInt(STAKES.size)]
             val placedBefore = Duration.ofHours(if (random.nextBoolean()) 2 else PLACED_DAY_BEFORE_HOURS)
             place(
@@ -223,7 +246,7 @@ class DemoSeeder(
             )
             if (daysAgo % LONG_SHOT_EVERY == 0L) {
                 val longShot =
-                    Selection(null, "Outsider du jour", "Football", "Ligue 2", "Résultat final", "Outsider gagne", LONG_SHOT_ODDS)
+                    SelectionCommand(null, "Outsider du jour", "Football", "Ligue 2", "Résultat final", "Outsider gagne", LONG_SHOT_ODDS)
                 val longShotWon = random.nextDouble() < LONG_SHOT_HIT_RATE
                 place(funBankroll, longShot, FUN_STAKE, "Unibet", at(daysAgo, "18:00"), if (longShotWon) BetStatus.WON else BetStatus.LOST)
             }
@@ -237,7 +260,7 @@ class DemoSeeder(
         pick: String,
         odds: Double,
         eventId: String? = null,
-    ) = Selection(eventId, event, "Football", competition, market, pick, odds)
+    ) = SelectionCommand(eventId, event, "Football", competition, market, pick, odds)
 
     private fun tennis(
         event: String,
@@ -245,7 +268,7 @@ class DemoSeeder(
         pick: String,
         odds: Double,
         eventId: String? = null,
-    ) = Selection(eventId, event, "Tennis", competition, "Vainqueur", pick, odds)
+    ) = SelectionCommand(eventId, event, "Tennis", competition, "Vainqueur", pick, odds)
 
     private data class Template(
         val sport: String,
@@ -271,6 +294,9 @@ class DemoSeeder(
         const val LONG_SHOT_ODDS = 4.5
         const val LONG_SHOT_HIT_RATE = 0.2
         const val FUN_STAKE = 5
+
+        /** Any positive stake: a palier's stake is set by its montante. */
+        val NOMINAL_STAKE = Money.euros(1)
         val STAKES = listOf(10, 15, 20, 25, 30)
         val BOOKMAKERS = listOf("Winamax", "Betclic", "Unibet")
         val HISTORY_TEMPLATES =

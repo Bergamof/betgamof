@@ -15,16 +15,16 @@ fun bet(
     sport: String = "Football",
     cashout: Money? = null,
 ) = Bet(
-    id = id,
-    bankrollId = bankrollId,
-    montanteId = montanteId,
+    id = BetId(id),
+    bankrollId = BankrollId(bankrollId),
+    montanteId = montanteId?.let(::MontanteId),
     type = BetType.SIMPLE,
     bookmaker = "Winamax",
     stake = stake,
     odds = odds,
     status = status,
     cashout = cashout,
-    selections = listOf(Selection(null, "Lens – Lyon", sport, "Ligue 1", "Total de buts", "Plus de 1,5", odds)),
+    selections = listOf(Selection.of(null, "Lens – Lyon", sport, "Ligue 1", "Total de buts", "Plus de 1,5", odds)),
     placedAt = placedAt,
     startsAt = placedAt.plusSeconds(1_800),
     settledAt = if (status == BetStatus.OPEN) null else placedAt.plusSeconds(3_000),
@@ -37,9 +37,9 @@ fun montanteConfig(
     excludeStake: Boolean = true,
     securePct: Int = 30,
     relancesAllowed: Int = 0,
-) = MontanteConfig(
+) = MontanteConfig.of(
     name = "Montante Ligue 1",
-    bankrollId = 1,
+    bankrollId = BankrollId(1),
     startCapital = Money.euros(160),
     targetOdds = 1.75,
     mode = mode,
@@ -53,4 +53,9 @@ fun montanteConfig(
 fun montante(
     config: MontanteConfig = montanteConfig(),
     closedAt: Instant? = null,
-) = Montante(id = 10, config = config, createdAt = T0, closedAt = closedAt)
+) = Montante(id = MontanteId(10), config = config, createdAt = T0, closedAt = closedAt)
+
+fun tracked(
+    montante: Montante,
+    bets: List<Bet>,
+) = TrackedMontante.of(montante, bets)

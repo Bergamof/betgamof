@@ -1,86 +1,59 @@
 package fr.bergamof.betgamof.application.port.outbound
 
 import fr.bergamof.betgamof.domain.Bankroll
-import fr.bergamof.betgamof.domain.BankrollSettings
+import fr.bergamof.betgamof.domain.BankrollId
 import fr.bergamof.betgamof.domain.Bet
+import fr.bergamof.betgamof.domain.BetId
 import fr.bergamof.betgamof.domain.DisciplineRule
-import fr.bergamof.betgamof.domain.Money
 import fr.bergamof.betgamof.domain.Montante
-import fr.bergamof.betgamof.domain.MontanteConfig
-import fr.bergamof.betgamof.domain.NewBet
-import fr.bergamof.betgamof.domain.RuleKind
-import fr.bergamof.betgamof.domain.Settlement
-import java.time.Instant
+import fr.bergamof.betgamof.domain.MontanteId
+import fr.bergamof.betgamof.domain.RuleId
 
-// Driven ports: what the application needs from storage. Implemented by adapters/persistence.
+// Driven ports: aggregate storage. Implemented by adapters/persistence.
+// Repositories store and load whole aggregates; state changes are decided by the domain.
+// `add` ignores the aggregate's id (NEW) and returns it with the id the store assigned; ids are never reused.
+// `save` and `remove` expect an existing aggregate: callers look it up with `findById` first.
 
 interface BankrollRepository {
     fun findAll(): List<Bankroll>
 
-    fun find(id: Long): Bankroll?
+    fun findById(id: BankrollId): Bankroll?
 
-    fun create(
-        settings: BankrollSettings,
-        now: Instant,
-    ): Long
+    fun add(bankroll: Bankroll): Bankroll
 
-    fun update(
-        id: Long,
-        settings: BankrollSettings,
-    ): Boolean
+    fun save(bankroll: Bankroll)
 
-    fun delete(id: Long): Boolean
+    fun remove(id: BankrollId)
 }
 
 interface BetRepository {
     fun findAll(): List<Bet>
 
-    fun find(id: Long): Bet?
+    fun findById(id: BetId): Bet?
 
-    fun create(
-        bet: NewBet,
-        placedAt: Instant,
-    ): Long
+    fun add(bet: Bet): Bet
 
-    fun updateStakeAndOdds(
-        id: Long,
-        stake: Money,
-        odds: Double,
-        bookmaker: String,
-    ): Boolean
+    fun save(bet: Bet)
 
-    fun settle(
-        id: Long,
-        settlement: Settlement,
-        at: Instant,
-    ): Boolean
-
-    fun delete(id: Long): Boolean
+    fun remove(id: BetId)
 }
 
 interface MontanteRepository {
     fun findAll(): List<Montante>
 
-    fun find(id: Long): Montante?
+    fun findById(id: MontanteId): Montante?
 
-    fun create(
-        config: MontanteConfig,
-        now: Instant,
-    ): Long
+    fun add(montante: Montante): Montante
 
-    fun close(
-        id: Long,
-        at: Instant,
-    ): Boolean
+    fun save(montante: Montante)
 }
 
 interface RuleRepository {
     fun findAll(): List<DisciplineRule>
 
-    fun create(
-        kind: RuleKind,
-        param: Int,
-    ): Long
+    fun findById(id: RuleId): DisciplineRule?
 
-    fun delete(id: Long): Boolean
+    fun add(rule: DisciplineRule): DisciplineRule
+
+    fun remove(id: RuleId)
 }

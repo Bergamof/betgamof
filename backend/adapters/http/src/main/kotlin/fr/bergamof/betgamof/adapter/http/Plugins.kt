@@ -1,7 +1,8 @@
 package fr.bergamof.betgamof.adapter.http
 
-import fr.bergamof.betgamof.application.ConflictException
 import fr.bergamof.betgamof.application.NotFoundException
+import fr.bergamof.betgamof.domain.InvalidTransitionException
+import fr.bergamof.betgamof.domain.InvalidValueException
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -45,18 +46,19 @@ internal fun Application.configureAuthentication(apiToken: String) {
     }
 }
 
+/**
+ * Error contract: broken business rules are client errors (400 for an invalid value, 409 for a transition
+ * the current state forbids), malformed requests are 400, and anything else (including a bare
+ * IllegalArgumentException) is a bug reported as 500 without leaking its message.
+ */
 internal fun Application.configureErrors() {
     install(CallLogging)
     install(StatusPages) {
         exception<NotFoundException> { call, cause -> call.respond(HttpStatusCode.NotFound, ErrorJson(cause.message.orEmpty())) }
-        exception<ConflictException> { call, cause -> call.respond(HttpStatusCode.Conflict, ErrorJson(cause.message.orEmpty())) }
-        exception<IllegalArgumentException> {
-            call,
-            cause,
-            ->
-            call.respond(HttpStatusCode.BadRequest, ErrorJson(cause.message.orEmpty()))
-        }
+        exception<InvalidValueException> { call, cause -> call.respond(HttpStatusCode.BadRequest, ErrorJson(cause.message.orEmpty())) }
+        exception<InvalidTransitionException> { call, cause -> call.respond(HttpStatusCode.Conflict, ErrorJson(cause.message.orEmpty())) }
         exception<BadRequestException> { call, cause ->
+            // Deserialization errors are wrapped: the root cause names the faulty field or value.
             val message = generateSequence(cause as Throwable) { it.cause }.last().message ?: "Requête invalide"
             call.respond(HttpStatusCode.BadRequest, ErrorJson(message))
         }

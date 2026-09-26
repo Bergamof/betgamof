@@ -20,22 +20,18 @@ object BankrollLedger {
     fun position(
         bankroll: Bankroll,
         bets: List<Bet>,
-        montantes: List<Pair<Montante, MontanteState>>,
+        montantes: List<TrackedMontante>,
     ): BankrollPosition {
         val directBets = bets.filter { it.bankrollId == bankroll.id && it.montanteId == null }
-        val ownMontantes = montantes.filter { (montante, _) -> montante.config.bankrollId == bankroll.id }
+        val ownMontantes = montantes.filter { it.config.bankrollId == bankroll.id }
         val settled = directBets.filter { it.isSettled }
         val directProfit = settled.map { it.profit }.sum()
-        val montanteEffect = ownMontantes.map { (montante, state) -> montanteEffect(montante, state) }.sum()
-        val montanteProfit =
-            ownMontantes
-                .filter { (_, state) -> !state.isActive }
-                .map { (_, state) -> state.result }
-                .sum()
+        val montanteEffect = ownMontantes.map { montanteEffect(it) }.sum()
+        val montanteProfit = ownMontantes.filter { !it.state.isActive }.map { it.state.result }.sum()
         val outside =
             ownMontantes
-                .filter { (montante, state) -> montante.config.excludeStake && state.isActive }
-                .map { (_, state) -> state.engaged }
+                .filter { it.config.excludeStake && it.state.isActive }
+                .map { it.state.engaged }
                 .sum()
         return BankrollPosition(
             balance = bankroll.settings.initialBalance + directProfit + montanteEffect,
@@ -50,10 +46,8 @@ object BankrollLedger {
      * Secured gains always land on the bankroll. The montante capital stays inside the bankroll
      * unless the stake is excluded, in which case it only comes back once the montante ends.
      */
-    fun montanteEffect(
-        montante: Montante,
-        state: MontanteState,
-    ): Money {
+    fun montanteEffect(montante: TrackedMontante): Money {
+        val state = montante.state
         val capitalOnBankroll = if (montante.config.excludeStake && state.isActive) Money.ZERO else state.capital
         return state.secured - state.engaged + capitalOnBankroll
     }

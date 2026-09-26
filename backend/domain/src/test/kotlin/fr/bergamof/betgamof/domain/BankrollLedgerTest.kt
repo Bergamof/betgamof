@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class BankrollLedgerTest {
     private val bankroll =
-        Bankroll(1, BankrollSettings("Principale", BankrollColor.GAZON, Money.euros(1000), Money.euros(900), 0.25, null), T0)
+        Bankroll(BankrollId(1), BankrollSettings.of("Principale", BankrollColor.GAZON, Money.euros(1000), Money.euros(900)), T0)
 
     @Test
     fun `balance adds settled direct bets and ignores open ones`() {
@@ -26,7 +26,7 @@ class BankrollLedgerTest {
     fun `an excluded montante stake leaves the bankroll until the montante ends`() {
         val active = montante()
         val won = listOf(bet(1, 1.75, Money.euros(160), BetStatus.WON, montanteId = 10))
-        val position = BankrollLedger.position(bankroll, won, listOf(active to MontanteEngine.replay(active, won)))
+        val position = BankrollLedger.position(bankroll, won, listOf(tracked(active, won)))
 
         // 160 € out, 36 € secured back: 1000 - 160 + 36.
         assertEquals(Money.euros(876), position.balance)
@@ -37,7 +37,7 @@ class BankrollLedgerTest {
     fun `closing an excluded montante brings its final balance back`() {
         val closed = montante(closedAt = T0.plusSeconds(99_999))
         val won = listOf(bet(1, 1.75, Money.euros(160), BetStatus.WON, montanteId = 10))
-        val position = BankrollLedger.position(bankroll, won, listOf(closed to MontanteEngine.replay(closed, won)))
+        val position = BankrollLedger.position(bankroll, won, listOf(tracked(closed, won)))
 
         assertEquals(Money.euros(1120), position.balance)
         assertEquals(Money.ZERO, position.outsideMontantes)
@@ -47,7 +47,7 @@ class BankrollLedgerTest {
     fun `a montante kept in the bankroll moves the balance live`() {
         val inside = montante(montanteConfig(excludeStake = false))
         val won = listOf(bet(1, 1.75, Money.euros(160), BetStatus.WON, montanteId = 10))
-        val position = BankrollLedger.position(bankroll, won, listOf(inside to MontanteEngine.replay(inside, won)))
+        val position = BankrollLedger.position(bankroll, won, listOf(tracked(inside, won)))
 
         assertEquals(Money.euros(1120), position.balance)
     }

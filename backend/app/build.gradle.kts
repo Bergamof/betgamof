@@ -14,10 +14,12 @@ dependencies {
     implementation(project(":adapters:http"))
     implementation(project(":adapters:persistence"))
     implementation(project(":adapters:odds"))
+    implementation(project(":adapters:demo"))
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
     implementation(libs.logback)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.serialization.json)
+    testImplementation(libs.konsist)
 }

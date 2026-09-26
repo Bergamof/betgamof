@@ -8,6 +8,7 @@ COPY application/build.gradle.kts application/
 COPY adapters/http/build.gradle.kts adapters/http/
 COPY adapters/persistence/build.gradle.kts adapters/persistence/
 COPY adapters/odds/build.gradle.kts adapters/odds/
+COPY adapters/demo/build.gradle.kts adapters/demo/
 COPY app/build.gradle.kts app/
 # Resolve dependencies in their own layer so code changes don't re-download them.
 RUN ./gradlew --no-daemon --quiet :app:dependencies > /dev/null

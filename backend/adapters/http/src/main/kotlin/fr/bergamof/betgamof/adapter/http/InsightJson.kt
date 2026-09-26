@@ -7,21 +7,20 @@ import fr.bergamof.betgamof.application.model.RuleView
 import fr.bergamof.betgamof.application.model.SegmentView
 import fr.bergamof.betgamof.application.model.StatsView
 import fr.bergamof.betgamof.application.model.StreakView
-import fr.bergamof.betgamof.domain.RuleKind
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class RuleJson(
     val id: Long,
-    val kind: RuleKind,
+    val kind: RuleKindJson,
     val param: Int,
     val respected: Boolean,
 )
 
 fun RuleView.toJson() =
     RuleJson(
-        id = id,
-        kind = kind,
+        id = id.value,
+        kind = kind.toJson(),
         param = param,
         respected = respected,
     )
@@ -51,7 +50,7 @@ data class SegmentJson(
 
 fun SegmentView.toJson() =
     SegmentJson(
-        label = label,
+        label = key.label(),
         count = count,
         staked = staked.toEuros(),
         profit = profit.toEuros(),

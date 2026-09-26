@@ -1,14 +1,11 @@
 package fr.bergamof.betgamof.adapter.http
 
-import fr.bergamof.betgamof.application.model.LossScenario
+import fr.bergamof.betgamof.application.model.LossScenarioView
 import fr.bergamof.betgamof.application.model.MontantePlanView
 import fr.bergamof.betgamof.application.model.MontanteView
 import fr.bergamof.betgamof.application.model.NextStepView
 import fr.bergamof.betgamof.application.model.PalierView
 import fr.bergamof.betgamof.application.model.PlannedStepView
-import fr.bergamof.betgamof.domain.BetStatus
-import fr.bergamof.betgamof.domain.MontanteMode
-import fr.bergamof.betgamof.domain.MontanteStatus
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,7 +17,7 @@ data class PalierJson(
     val startsAt: JsonInstant,
     val stake: Double,
     val odds: Double,
-    val status: BetStatus,
+    val status: BetStatusJson,
     val secured: Double,
     val capitalAfter: Double,
     val isRelance: Boolean,
@@ -29,13 +26,13 @@ data class PalierJson(
 fun PalierView.toJson() =
     PalierJson(
         number = number,
-        betId = betId,
-        label = label,
+        betId = betId.value,
+        label = betLabel(type, selections),
         bookmaker = bookmaker,
         startsAt = startsAt,
         stake = stake.toEuros(),
         odds = odds,
-        status = status,
+        status = status.toJson(),
         secured = secured.toEuros(),
         capitalAfter = capitalAfter.toEuros(),
         isRelance = isRelance,
@@ -49,7 +46,7 @@ data class LossScenarioJson(
     val lostAmount: Double,
 )
 
-fun LossScenario.toJson() =
+fun LossScenarioView.toJson() =
     LossScenarioJson(
         relance = relance,
         capitalAfter = capitalAfter.toEuros(),
@@ -87,7 +84,7 @@ data class MontanteJson(
     val name: String,
     val bankrollId: Long,
     val bankrollName: String,
-    val mode: MontanteMode,
+    val mode: MontanteModeJson,
     val targetMultiplier: Double?,
     val stepCount: Int?,
     val targetOdds: Double,
@@ -96,7 +93,7 @@ data class MontanteJson(
     val relancesAllowed: Int,
     val relancesUsed: Int,
     val startCapital: Double,
-    val status: MontanteStatus,
+    val status: MontanteStatusJson,
     val capital: Double,
     val engaged: Double,
     val secured: Double,
@@ -115,11 +112,11 @@ data class MontanteJson(
 
 fun MontanteView.toJson() =
     MontanteJson(
-        id = id,
+        id = id.value,
         name = name,
-        bankrollId = bankrollId,
+        bankrollId = bankrollId.value,
         bankrollName = bankrollName,
-        mode = mode,
+        mode = mode.toJson(),
         targetMultiplier = targetMultiplier,
         stepCount = stepCount,
         targetOdds = targetOdds,
@@ -128,7 +125,7 @@ fun MontanteView.toJson() =
         relancesAllowed = relancesAllowed,
         relancesUsed = relancesUsed,
         startCapital = startCapital.toEuros(),
-        status = status,
+        status = status.toJson(),
         capital = capital.toEuros(),
         engaged = engaged.toEuros(),
         secured = secured.toEuros(),

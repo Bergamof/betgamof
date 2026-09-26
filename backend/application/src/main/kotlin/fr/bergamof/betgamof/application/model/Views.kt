@@ -1,18 +1,25 @@
 package fr.bergamof.betgamof.application.model
 
 import fr.bergamof.betgamof.domain.BankrollColor
+import fr.bergamof.betgamof.domain.BankrollId
+import fr.bergamof.betgamof.domain.BetId
 import fr.bergamof.betgamof.domain.BetStatus
 import fr.bergamof.betgamof.domain.BetType
+import fr.bergamof.betgamof.domain.MarketCategory
 import fr.bergamof.betgamof.domain.Money
+import fr.bergamof.betgamof.domain.MontanteId
 import fr.bergamof.betgamof.domain.MontanteMode
 import fr.bergamof.betgamof.domain.MontanteStatus
+import fr.bergamof.betgamof.domain.RuleId
 import fr.bergamof.betgamof.domain.RuleKind
+import fr.bergamof.betgamof.domain.SegmentKey
 import java.time.Instant
 
-// Read models returned by the use cases. Adapters decide how to expose them (JSON for the REST API).
+// Read models returned by the use cases: structured data only. Adapters decide how to present them
+// (labels, JSON field names, enum spellings).
 
 data class BankrollView(
-    val id: Long,
+    val id: BankrollId,
     val name: String,
     val color: BankrollColor,
     val initialBalance: Money,
@@ -41,10 +48,10 @@ data class SelectionView(
 )
 
 data class BetView(
-    val id: Long,
-    val bankrollId: Long,
+    val id: BetId,
+    val bankrollId: BankrollId,
     val bankrollName: String,
-    val montanteId: Long?,
+    val montanteId: MontanteId?,
     val montanteName: String?,
     val palierNumber: Int?,
     val type: BetType,
@@ -55,10 +62,7 @@ data class BetView(
     val cashout: Money?,
     val profit: Money,
     val potentialReturn: Money,
-    val label: String,
     val sport: String,
-    val competition: String,
-    val market: String,
     val selections: List<SelectionView>,
     val placedAt: Instant,
     val startsAt: Instant,
@@ -67,8 +71,9 @@ data class BetView(
 
 data class PalierView(
     val number: Int,
-    val betId: Long,
-    val label: String,
+    val betId: BetId,
+    val type: BetType,
+    val selections: List<SelectionView>,
     val bookmaker: String,
     val startsAt: Instant,
     val stake: Money,
@@ -79,7 +84,7 @@ data class PalierView(
     val isRelance: Boolean,
 )
 
-data class LossScenario(
+data class LossScenarioView(
     /** True when a relance is still available: the montante restarts from its starting capital. */
     val relance: Boolean,
     val capitalAfter: Money,
@@ -95,13 +100,13 @@ data class NextStepView(
     val openBet: BetView?,
     val capitalIfWon: Money?,
     val securedIfWon: Money?,
-    val ifLost: LossScenario,
+    val ifLost: LossScenarioView,
 )
 
 data class MontanteView(
-    val id: Long,
+    val id: MontanteId,
     val name: String,
-    val bankrollId: Long,
+    val bankrollId: BankrollId,
     val bankrollName: String,
     val mode: MontanteMode,
     val targetMultiplier: Double?,
@@ -147,7 +152,7 @@ data class MontantePlanView(
 )
 
 data class RuleView(
-    val id: Long,
+    val id: RuleId,
     val kind: RuleKind,
     val param: Int,
     val respected: Boolean,
@@ -160,7 +165,7 @@ data class KellyView(
 )
 
 data class SegmentView(
-    val label: String,
+    val key: SegmentKey,
     val count: Int,
     val staked: Money,
     val profit: Money,
@@ -211,4 +216,27 @@ data class StatsView(
     val lateNight: SegmentView,
     val placedDayBefore: SegmentView,
     val montantes: MontanteSummaryView,
+)
+
+data class OutcomeView(
+    val pick: String,
+    val odds: Double,
+    val bookmaker: String,
+)
+
+data class MarketView(
+    val id: String,
+    val name: String,
+    val category: MarketCategory,
+    val popular: Boolean,
+    val outcomes: List<OutcomeView>,
+)
+
+data class SportEventView(
+    val id: String,
+    val sport: String,
+    val competition: String,
+    val name: String,
+    val startsAt: Instant,
+    val markets: List<MarketView>,
 )

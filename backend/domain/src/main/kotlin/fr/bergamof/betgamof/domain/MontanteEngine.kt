@@ -87,7 +87,7 @@ object MontanteEngine {
         }
 
         private fun lose() {
-            if (relancesUsed < config.relancesAllowed) {
+            if (config.allowsRelance(relancesUsed)) {
                 relancesUsed++
                 engaged += config.startCapital
                 capital = config.startCapital

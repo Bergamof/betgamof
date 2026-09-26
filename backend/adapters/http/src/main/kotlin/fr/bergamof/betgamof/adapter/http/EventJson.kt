@@ -1,8 +1,8 @@
 package fr.bergamof.betgamof.adapter.http
 
-import fr.bergamof.betgamof.domain.Market
-import fr.bergamof.betgamof.domain.MarketCategory
-import fr.bergamof.betgamof.domain.SportEvent
+import fr.bergamof.betgamof.application.model.MarketView
+import fr.bergamof.betgamof.application.model.OutcomeView
+import fr.bergamof.betgamof.application.model.SportEventView
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,16 +12,18 @@ data class OutcomeJson(
     val bookmaker: String,
 )
 
+fun OutcomeView.toJson() = OutcomeJson(pick, odds, bookmaker)
+
 @Serializable
 data class MarketJson(
     val id: String,
     val name: String,
-    val category: MarketCategory,
+    val category: MarketCategoryJson,
     val popular: Boolean,
     val outcomes: List<OutcomeJson>,
 )
 
-fun Market.toJson() = MarketJson(id, name, category, popular, outcomes.map { OutcomeJson(it.pick, it.odds, it.bookmaker) })
+fun MarketView.toJson() = MarketJson(id, name, category.toJson(), popular, outcomes.map { it.toJson() })
 
 @Serializable
 data class SportEventJson(
@@ -33,4 +35,4 @@ data class SportEventJson(
     val markets: List<MarketJson>,
 )
 
-fun SportEvent.toJson() = SportEventJson(id, sport, competition, name, startsAt, markets.map { it.toJson() })
+fun SportEventView.toJson() = SportEventJson(id, sport, competition, name, startsAt, markets.map { it.toJson() })

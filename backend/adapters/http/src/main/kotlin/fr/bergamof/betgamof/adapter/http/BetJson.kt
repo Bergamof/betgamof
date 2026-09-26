@@ -2,8 +2,6 @@ package fr.bergamof.betgamof.adapter.http
 
 import fr.bergamof.betgamof.application.model.BetView
 import fr.bergamof.betgamof.application.model.SelectionView
-import fr.bergamof.betgamof.domain.BetStatus
-import fr.bergamof.betgamof.domain.BetType
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -36,11 +34,11 @@ data class BetJson(
     val montanteId: Long?,
     val montanteName: String?,
     val palierNumber: Int?,
-    val type: BetType,
+    val type: BetTypeJson,
     val bookmaker: String,
     val stake: Double,
     val odds: Double,
-    val status: BetStatus,
+    val status: BetStatusJson,
     val cashout: Double?,
     val profit: Double,
     val potentialReturn: Double,
@@ -56,24 +54,24 @@ data class BetJson(
 
 fun BetView.toJson() =
     BetJson(
-        id = id,
-        bankrollId = bankrollId,
+        id = id.value,
+        bankrollId = bankrollId.value,
         bankrollName = bankrollName,
-        montanteId = montanteId,
+        montanteId = montanteId?.value,
         montanteName = montanteName,
         palierNumber = palierNumber,
-        type = type,
+        type = type.toJson(),
         bookmaker = bookmaker,
         stake = stake.toEuros(),
         odds = odds,
-        status = status,
+        status = status.toJson(),
         cashout = cashout?.toEuros(),
         profit = profit.toEuros(),
         potentialReturn = potentialReturn.toEuros(),
-        label = label,
+        label = betLabel(type, selections),
         sport = sport,
-        competition = competition,
-        market = market,
+        competition = competitionLabel(selections),
+        market = marketLabel(type, selections),
         selections = selections.map { it.toJson() },
         placedAt = placedAt,
         startsAt = startsAt,

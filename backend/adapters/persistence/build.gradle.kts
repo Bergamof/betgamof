@@ -9,4 +9,7 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.flyway.core)
     implementation(libs.sqlite.jdbc)
+
+    // Contract suites shared with the in-memory fakes.
+    testImplementation(testFixtures(project(":application")))
 }

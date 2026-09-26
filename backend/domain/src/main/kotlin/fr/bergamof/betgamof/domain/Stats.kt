@@ -11,8 +11,32 @@ data class ProfitPoint(
     val cumulativeProfit: Money,
 )
 
+/** What a statistics segment groups bets by. Adapters turn it into a label. */
+sealed interface SegmentKey {
+    data class Sport(
+        val name: String,
+    ) : SegmentKey
+
+    data class Market(
+        val name: String,
+    ) : SegmentKey
+
+    /** Combined and system bets, which span several markets. */
+    data object MultipleMarkets : SegmentKey
+
+    data class Odds(
+        val range: OddsRange,
+    ) : SegmentKey
+
+    /** Bets placed at 22:00 or later. */
+    data object LateNight : SegmentKey
+
+    /** Bets placed the day before the event starts. */
+    data object DayBefore : SegmentKey
+}
+
 data class Segment(
-    val label: String,
+    val key: SegmentKey,
     val count: Int,
     val staked: Money,
     val profit: Money,
@@ -45,6 +69,8 @@ data class Stats(
     val lost: Int,
     val averageOdds: Double,
     val averageStake: Money,
+    /** Average stake as a share of the current balance. */
+    val averageStakeShare: Double,
     val bestWinStreak: Int,
     val currentStreak: Streak?,
     val maxDrawdown: Money,
@@ -68,10 +94,12 @@ object StatsCalculator {
     fun compute(
         bets: List<Bet>,
         montantes: List<MontanteState>,
+        balance: Money,
         zone: ZoneId,
     ): Stats {
         val settled = bets.filter { it.isSettled }.sortedBy { it.settledAt }
         val decided = settled.filter { it.isDecided }
+        val averageStake = if (settled.isEmpty()) Money.ZERO else Money(settled.map { it.stake.cents }.average().toLong())
         return Stats(
             settledCount = settled.size,
             openCount = bets.count { it.isOpen },
@@ -80,17 +108,22 @@ object StatsCalculator {
             won = decided.count { it.status == BetStatus.WON },
             lost = decided.count { it.status == BetStatus.LOST },
             averageOdds = if (settled.isEmpty()) 0.0 else settled.map { it.odds }.average(),
-            averageStake = if (settled.isEmpty()) Money.ZERO else Money(settled.map { it.stake.cents }.average().toLong()),
+            averageStake = averageStake,
+            averageStakeShare = if (balance.isPositive) averageStake / balance else 0.0,
             bestWinStreak = bestWinStreak(decided),
             currentStreak = currentStreak(decided),
             maxDrawdown = maxDrawdown(settled),
             firstBetAt = bets.minOfOrNull { it.placedAt },
             profitCurve = profitCurve(settled),
-            bySport = segment(settled) { it.sport }.sortedByDescending { it.profit },
-            byOddsRange = OddsRange.entries.map { range -> segmentOf(range.label, settled.filter { OddsRange.of(it.odds) == range }) },
-            byMarket = segment(settled) { it.market }.sortedByDescending { it.profit },
-            lateNight = segmentOf("late-night", settled.filter { it.placedAt.atZone(zone).hour >= LATE_NIGHT_HOUR }),
-            placedDayBefore = segmentOf("day-before", settled.filter { isPlacedDayBefore(it, zone) }),
+            bySport = segment(settled) { SegmentKey.Sport(it.sport) }.sortedByDescending { it.profit },
+            byOddsRange =
+                OddsRange.entries.map { range -> segmentOf(SegmentKey.Odds(range), settled.filter { OddsRange.of(it.odds) == range }) },
+            byMarket =
+                segment(
+                    settled,
+                ) { bet -> bet.market?.let(SegmentKey::Market) ?: SegmentKey.MultipleMarkets }.sortedByDescending { it.profit },
+            lateNight = segmentOf(SegmentKey.LateNight, settled.filter { it.placedAt.atZone(zone).hour >= LATE_NIGHT_HOUR }),
+            placedDayBefore = segmentOf(SegmentKey.DayBefore, settled.filter { isPlacedDayBefore(it, zone) }),
             montantes = summarize(montantes),
         )
     }
@@ -133,13 +166,13 @@ object StatsCalculator {
 
     private fun segment(
         bets: List<Bet>,
-        key: (Bet) -> String,
-    ) = bets.groupBy(key).map { (label, group) -> segmentOf(label, group) }
+        key: (Bet) -> SegmentKey,
+    ) = bets.groupBy(key).map { (segmentKey, group) -> segmentOf(segmentKey, group) }
 
     private fun segmentOf(
-        label: String,
+        key: SegmentKey,
         bets: List<Bet>,
-    ) = Segment(label, bets.size, bets.map { it.stake }.sum(), bets.map { it.profit }.sum())
+    ) = Segment(key, bets.size, bets.map { it.stake }.sum(), bets.map { it.profit }.sum())
 
     private fun isPlacedDayBefore(
         bet: Bet,

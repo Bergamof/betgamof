@@ -6,7 +6,8 @@ enum class BetType { SIMPLE, COMBINE, SYSTEME }
 
 enum class BetStatus { OPEN, WON, LOST, VOID, CASHOUT }
 
-data class Selection(
+@ConsistentCopyVisibility
+data class Selection private constructor(
     val eventId: String?,
     val eventName: String,
     val sport: String,
@@ -16,15 +17,37 @@ data class Selection(
     val odds: Double,
 ) {
     init {
-        require(eventName.isNotBlank()) { "L'événement est obligatoire" }
-        require(pick.isNotBlank()) { "La sélection est obligatoire" }
-        require(odds > 1.0) { "Une cote doit être supérieure à 1" }
+        ensureValid(eventName.isNotBlank()) { "L'événement est obligatoire" }
+        ensureValid(pick.isNotBlank()) { "La sélection est obligatoire" }
+        ensureValid(odds > 1.0) { "Une cote doit être supérieure à 1" }
+    }
+
+    companion object {
+        @Suppress("LongParameterList") // Mirrors the data class constructor.
+        fun of(
+            eventId: String?,
+            eventName: String,
+            sport: String,
+            competition: String,
+            market: String,
+            pick: String,
+            odds: Double,
+        ) = Selection(
+            eventId?.trim()?.ifEmpty { null },
+            eventName.trim(),
+            sport.trim(),
+            competition.trim(),
+            market.trim(),
+            pick.trim(),
+            odds,
+        )
     }
 }
 
-data class NewBet(
-    val bankrollId: Long,
-    val montanteId: Long?,
+/** A bet about to be placed: validated, not yet part of the history. */
+@ConsistentCopyVisibility
+data class NewBet private constructor(
+    val bankrollId: BankrollId,
     val type: BetType,
     val bookmaker: String,
     val stake: Money,
@@ -33,19 +56,40 @@ data class NewBet(
     val selections: List<Selection>,
 ) {
     init {
-        require(stake.isPositive) { "La mise doit être positive" }
-        require(odds > 1.0) { "La cote doit être supérieure à 1" }
-        require(bookmaker.isNotBlank()) { "Le bookmaker est obligatoire" }
-        require(selections.isNotEmpty()) { "Un pari contient au moins une sélection" }
-        require(type != BetType.SIMPLE || selections.size == 1) { "Un pari simple contient une seule sélection" }
-        require(type == BetType.SIMPLE || selections.size >= 2) { "Un combiné ou un système contient plusieurs sélections" }
+        validateTerms(stake, odds, bookmaker)
+        ensureValid(selections.isNotEmpty()) { "Un pari contient au moins une sélection" }
+        ensureValid(type != BetType.SIMPLE || selections.size == 1) { "Un pari simple contient une seule sélection" }
+        ensureValid(type == BetType.SIMPLE || selections.size >= 2) { "Un combiné ou un système contient plusieurs sélections" }
+    }
+
+    companion object {
+        @Suppress("LongParameterList") // Mirrors the data class constructor.
+        fun of(
+            bankrollId: BankrollId,
+            type: BetType,
+            bookmaker: String,
+            stake: Money,
+            odds: Double,
+            startsAt: Instant,
+            selections: List<Selection>,
+        ) = NewBet(bankrollId, type, bookmaker.trim(), stake, odds, startsAt, selections)
     }
 }
 
+private fun validateTerms(
+    stake: Money,
+    odds: Double,
+    bookmaker: String,
+) {
+    ensureValid(stake.isPositive) { "La mise doit être positive" }
+    ensureValid(odds > 1.0) { "La cote doit être supérieure à 1" }
+    ensureValid(bookmaker.isNotBlank()) { "Le bookmaker est obligatoire" }
+}
+
 data class Bet(
-    val id: Long,
-    val bankrollId: Long,
-    val montanteId: Long?,
+    val id: BetId,
+    val bankrollId: BankrollId,
+    val montanteId: MontanteId?,
     val type: BetType,
     val bookmaker: String,
     val stake: Money,
@@ -66,7 +110,8 @@ data class Bet(
 
     val sport get() = selections.first().sport
 
-    val market get() = if (type == BetType.SIMPLE) selections.first().market else "Combiné"
+    /** Market of a single bet; null for combined and system bets, which span several markets. */
+    val market get() = if (type == BetType.SIMPLE) selections.first().market else null
 
     val potentialReturn get() = stake * odds
 
@@ -78,6 +123,57 @@ data class Bet(
                 BetStatus.CASHOUT -> (cashout ?: Money.ZERO) - stake
                 BetStatus.OPEN, BetStatus.VOID -> Money.ZERO
             }
+
+    /** Corrects the stake, odds or bookmaker of a pending bet. A palier's stake is set by its montante. */
+    fun amend(
+        stake: Money,
+        odds: Double,
+        bookmaker: String,
+    ): Bet {
+        ensureTransition(isOpen) { "Seul un pari en cours peut être modifié" }
+        ensureTransition(montanteId == null || stake == this.stake) { "La mise d'un palier est fixée par la montante" }
+        val cleanBookmaker = bookmaker.trim()
+        validateTerms(stake, odds, cleanBookmaker)
+        return copy(stake = stake, odds = odds, bookmaker = cleanBookmaker)
+    }
+
+    fun settle(
+        settlement: Settlement,
+        at: Instant,
+    ): Bet {
+        ensureTransition(isOpen) { "Ce pari est déjà réglé" }
+        return copy(status = settlement.status, cashout = settlement.cashout, settledAt = at)
+    }
+
+    /** A settled palier is part of its montante's history and must stay. */
+    fun ensureDeletable() {
+        ensureTransition(montanteId == null || isOpen) {
+            "Un palier réglé fait partie de l'historique de la montante et ne peut pas être supprimé"
+        }
+    }
+
+    companion object {
+        /** Every bet starts pending; it is settled later. */
+        fun place(
+            bet: NewBet,
+            placedAt: Instant,
+            montanteId: MontanteId? = null,
+        ) = Bet(
+            id = BetId.NEW,
+            bankrollId = bet.bankrollId,
+            montanteId = montanteId,
+            type = bet.type,
+            bookmaker = bet.bookmaker,
+            stake = bet.stake,
+            odds = bet.odds,
+            status = BetStatus.OPEN,
+            cashout = null,
+            selections = bet.selections,
+            placedAt = placedAt,
+            startsAt = bet.startsAt,
+            settledAt = null,
+        )
+    }
 }
 
 data class Settlement(
@@ -85,7 +181,8 @@ data class Settlement(
     val cashout: Money?,
 ) {
     init {
-        require(status != BetStatus.OPEN) { "Un règlement ne peut pas remettre le pari en cours" }
-        require(status != BetStatus.CASHOUT || cashout != null) { "Le montant du cash-out est obligatoire" }
+        ensureValid(status != BetStatus.OPEN) { "Un règlement ne peut pas remettre le pari en cours" }
+        ensureValid(status != BetStatus.CASHOUT || cashout != null) { "Le montant du cash-out est obligatoire" }
+        ensureValid(cashout == null || cashout.cents >= 0) { "Le montant du cash-out doit être positif" }
     }
 }

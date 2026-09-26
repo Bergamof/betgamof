@@ -1,40 +1,38 @@
 package fr.bergamof.betgamof.adapter.http
 
-import fr.bergamof.betgamof.domain.BankrollColor
-import fr.bergamof.betgamof.domain.BankrollSettings
-import fr.bergamof.betgamof.domain.BetStatus
-import fr.bergamof.betgamof.domain.BetType
+import fr.bergamof.betgamof.application.port.inbound.AddRuleCommand
+import fr.bergamof.betgamof.application.port.inbound.AmendBetCommand
+import fr.bergamof.betgamof.application.port.inbound.BankrollCommand
+import fr.bergamof.betgamof.application.port.inbound.PlaceBetCommand
+import fr.bergamof.betgamof.application.port.inbound.SelectionCommand
+import fr.bergamof.betgamof.application.port.inbound.SettleBetCommand
+import fr.bergamof.betgamof.application.port.inbound.StartMontanteCommand
+import fr.bergamof.betgamof.domain.BankrollId
 import fr.bergamof.betgamof.domain.Money
-import fr.bergamof.betgamof.domain.MontanteConfig
-import fr.bergamof.betgamof.domain.MontanteMode
-import fr.bergamof.betgamof.domain.NewBet
-import fr.bergamof.betgamof.domain.RuleKind
-import fr.bergamof.betgamof.domain.Selection
-import fr.bergamof.betgamof.domain.Settlement
+import fr.bergamof.betgamof.domain.MontanteId
 import kotlinx.serialization.Serializable
 
-/** Quarter Kelly: a common compromise between growth and variance. */
-private const val DEFAULT_KELLY_FRACTION = 0.25
+// Request bodies of the REST API. They only translate JSON into commands: validation and defaults
+// belong to the application and the domain.
 
 @Serializable
 data class BankrollRequest(
     val name: String,
-    val color: BankrollColor,
+    val color: BankrollColorJson,
     val initialBalance: Double,
     val stopLoss: Double? = null,
-    val kellyFraction: Double = DEFAULT_KELLY_FRACTION,
+    /** Absent means the domain's default fraction. */
+    val kellyFraction: Double? = null,
     val fixedStake: Double? = null,
 ) {
-    fun toSettings() =
-        BankrollSettings(
-            name,
-            color,
-            Money.euros(initialBalance),
-            stopLoss?.let {
-                Money.euros(it)
-            },
-            kellyFraction,
-            fixedStake?.let { Money.euros(it) },
+    fun toCommand() =
+        BankrollCommand(
+            name = name,
+            color = color.toDomain(),
+            initialBalance = Money.euros(initialBalance),
+            stopLoss = stopLoss?.let { Money.euros(it) },
+            kellyFraction = kellyFraction,
+            fixedStake = fixedStake?.let { Money.euros(it) },
         )
 }
 
@@ -48,22 +46,31 @@ data class SelectionRequest(
     val pick: String,
     val odds: Double,
 ) {
-    fun toSelection() = Selection(eventId, eventName, sport, competition, market, pick, odds)
+    fun toCommand() = SelectionCommand(eventId, eventName, sport, competition, market, pick, odds)
 }
 
 @Serializable
 data class BetRequest(
     val bankrollId: Long,
     val montanteId: Long? = null,
-    val type: BetType,
+    val type: BetTypeJson,
     val bookmaker: String,
     val stake: Double,
     val odds: Double,
     val startsAt: JsonInstant,
     val selections: List<SelectionRequest>,
 ) {
-    fun toNewBet() =
-        NewBet(bankrollId, montanteId, type, bookmaker, Money.euros(stake), odds, startsAt, selections.map { it.toSelection() })
+    fun toCommand() =
+        PlaceBetCommand(
+            bankrollId = BankrollId(bankrollId),
+            montanteId = montanteId?.let(::MontanteId),
+            type = type.toDomain(),
+            bookmaker = bookmaker,
+            stake = Money.euros(stake),
+            odds = odds,
+            startsAt = startsAt,
+            selections = selections.map { it.toCommand() },
+        )
 }
 
 @Serializable
@@ -72,15 +79,15 @@ data class BetUpdateRequest(
     val odds: Double,
     val bookmaker: String,
 ) {
-    fun stakeMoney() = Money.euros(stake)
+    fun toCommand() = AmendBetCommand(Money.euros(stake), odds, bookmaker)
 }
 
 @Serializable
 data class SettlementRequest(
-    val status: BetStatus,
+    val status: BetStatusJson,
     val cashout: Double? = null,
 ) {
-    fun toSettlement() = Settlement(status, cashout?.let { Money.euros(it) })
+    fun toCommand() = SettleBetCommand(status.toDomain(), cashout?.let { Money.euros(it) })
 }
 
 @Serializable
@@ -89,30 +96,32 @@ data class MontanteRequest(
     val bankrollId: Long,
     val startCapital: Double,
     val targetOdds: Double,
-    val mode: MontanteMode,
+    val mode: MontanteModeJson,
     val targetMultiplier: Double? = null,
     val stepCount: Int? = null,
     val excludeStake: Boolean,
     val securePct: Int,
     val relancesAllowed: Int = 0,
 ) {
-    fun toConfig() =
-        MontanteConfig(
-            name,
-            bankrollId,
-            Money.euros(startCapital),
-            targetOdds,
-            mode,
-            targetMultiplier,
-            stepCount,
-            excludeStake,
-            securePct,
-            relancesAllowed,
+    fun toCommand() =
+        StartMontanteCommand(
+            name = name,
+            bankrollId = BankrollId(bankrollId),
+            startCapital = Money.euros(startCapital),
+            targetOdds = targetOdds,
+            mode = mode.toDomain(),
+            targetMultiplier = targetMultiplier,
+            stepCount = stepCount,
+            excludeStake = excludeStake,
+            securePct = securePct,
+            relancesAllowed = relancesAllowed,
         )
 }
 
 @Serializable
 data class RuleRequest(
-    val kind: RuleKind,
+    val kind: RuleKindJson,
     val param: Int = 0,
-)
+) {
+    fun toCommand() = AddRuleCommand(kind.toDomain(), param)
+}
