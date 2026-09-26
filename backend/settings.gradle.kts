@@ -1,17 +1,23 @@
 rootProject.name = "betgamof-backend"
 
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
     }
 }
 
-// Hexagonal architecture: dependencies only point inwards (adapters → application → domain).
+// Hexagonal architecture: `business` is the core; adapters and the application only point inwards.
 include(
-    "domain",
+    "business",
+    "inbound:rest",
+    "outbound:persistence",
+    "outbound:odds",
     "application",
-    "adapters:http",
-    "adapters:persistence",
-    "adapters:odds",
-    "app",
 )
