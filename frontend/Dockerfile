@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
@@ -6,7 +6,7 @@ COPY . .
 RUN npm run build
 
 # adapter-node bundles every dependency into build/: the runtime image needs Node only.
-FROM node:24-alpine
+FROM node:26-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000
