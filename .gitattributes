@@ -1,0 +1,19 @@
+# Normalise line endings (see .editorconfig).
+* text=auto eol=lf
+
+# Windows scripts need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Generated files: collapse in diffs.
+frontend/package-lock.json linguist-generated=true -diff
+backend/gradlew linguist-generated=true
+backend/gradlew.bat linguist-generated=true

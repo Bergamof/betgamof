@@ -1,0 +1,30 @@
+# Betgamof: SvelteKit frontend (public) + Kotlin API (internal only) + SQLite volume.
+# Copy .env.example to .env and set the secrets before `docker compose up`.
+services:
+  backend:
+    build: ./backend
+    environment:
+      BETGAMOF_API_TOKEN: ${BETGAMOF_API_TOKEN:?set BETGAMOF_API_TOKEN in .env}
+      BETGAMOF_SEED_DEMO: ${BETGAMOF_SEED_DEMO:-false}
+      BETGAMOF_TIMEZONE: ${BETGAMOF_TIMEZONE:-Europe/Paris}
+    volumes:
+      - betgamof-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${BETGAMOF_PORT:-3000}:3000"
+    environment:
+      BETGAMOF_BACKEND_URL: http://backend:8080
+      BETGAMOF_API_TOKEN: ${BETGAMOF_API_TOKEN:?set BETGAMOF_API_TOKEN in .env}
+      BETGAMOF_APP_PASSWORD: ${BETGAMOF_APP_PASSWORD:?set BETGAMOF_APP_PASSWORD in .env}
+      # Public URL of the app, required by SvelteKit's CSRF protection on form posts.
+      ORIGIN: ${BETGAMOF_ORIGIN:-http://localhost:3000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  betgamof-data:
