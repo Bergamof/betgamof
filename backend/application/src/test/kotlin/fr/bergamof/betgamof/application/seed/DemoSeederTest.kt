@@ -9,6 +9,7 @@ import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.MontanteEngine
 import fr.bergamof.betgamof.business.domain.MontanteStatus
+import fr.bergamof.betgamof.business.port.outbound.BetCriteria
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -30,7 +31,7 @@ class DemoSeederTest {
         seeder.seedIfEmpty()
 
         assertEquals(2, bankrolls.findAll().size)
-        assertTrue(bets.findAll().count { it.isSettled } > 40)
+        assertTrue(bets.find(BetCriteria()).count { it.isSettled } > 40)
         assertEquals(3, rules.findAll().size)
     }
 
@@ -42,7 +43,7 @@ class DemoSeederTest {
             montantes.findAll().map { montante ->
                 MontanteEngine.replay(
                     montante,
-                    bets.findAll().filter {
+                    bets.find(BetCriteria()).filter {
                         it.montanteId ==
                             montante.id
                     },
@@ -56,7 +57,7 @@ class DemoSeederTest {
     fun `seeded bets are never placed in the future`() {
         seeder.seedIfEmpty()
 
-        assertTrue(bets.findAll().all { it.placedAt <= clock.instant() })
+        assertTrue(bets.find(BetCriteria()).all { it.placedAt <= clock.instant() })
     }
 
     @Test
@@ -66,6 +67,6 @@ class DemoSeederTest {
         seeder.seedIfEmpty()
 
         assertEquals(1, bankrolls.findAll().size)
-        assertTrue(bets.findAll().isEmpty())
+        assertTrue(bets.find(BetCriteria()).isEmpty())
     }
 }

@@ -5,6 +5,7 @@ import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.domain.Bet
 import fr.bergamof.betgamof.business.domain.BetChange
 import fr.bergamof.betgamof.business.domain.BetStatus
+import fr.bergamof.betgamof.business.domain.BetTotals
 import fr.bergamof.betgamof.business.domain.DisciplineRule
 import fr.bergamof.betgamof.business.domain.Montante
 import fr.bergamof.betgamof.business.domain.MontanteConfig
@@ -12,6 +13,7 @@ import fr.bergamof.betgamof.business.domain.NewBet
 import fr.bergamof.betgamof.business.domain.NewRule
 import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.outbound.BankrollRepository
+import fr.bergamof.betgamof.business.port.outbound.BetCriteria
 import fr.bergamof.betgamof.business.port.outbound.BetRepository
 import fr.bergamof.betgamof.business.port.outbound.MontanteRepository
 import fr.bergamof.betgamof.business.port.outbound.RuleRepository
@@ -21,6 +23,7 @@ import java.time.Instant
 
 class InMemoryBankrollRepository : BankrollRepository {
     private val rows = linkedMapOf<Long, Bankroll>()
+    private var nextId = 1L
 
     override fun findAll() = rows.values.toList()
 
@@ -30,7 +33,7 @@ class InMemoryBankrollRepository : BankrollRepository {
         settings: BankrollSettings,
         now: Instant,
     ): Long {
-        val id = rows.size + 1L
+        val id = nextId++
         rows[id] = Bankroll(id, settings, now)
         return id
     }
@@ -45,16 +48,37 @@ class InMemoryBankrollRepository : BankrollRepository {
 
 class InMemoryBetRepository : BetRepository {
     private val rows = linkedMapOf<Long, Bet>()
-
-    override fun findAll() = rows.values.toList()
+    private var nextId = 1L
 
     override fun find(id: Long) = rows[id]
+
+    override fun find(criteria: BetCriteria): List<Bet> {
+        val sorted = rows.values.filter(criteria::matches).sortedWith(criteria.order.comparator)
+        return criteria.page?.let { sorted.drop(it.offset).take(it.limit) } ?: sorted
+    }
+
+    override fun count(criteria: BetCriteria) = rows.values.count(criteria::matches)
+
+    override fun directTotalsByBankroll() =
+        rows.values
+            .filter { it.montanteId == null }
+            .groupBy { it.bankrollId }
+            .mapValues { (_, bets) -> BetTotals.of(bets) }
+
+    override fun bookmakersByUsage(bankrollId: Long) =
+        rows.values
+            .filter { it.bankrollId == bankrollId }
+            .groupingBy { it.bookmaker }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .map { it.key }
 
     override fun create(
         bet: NewBet,
         placedAt: Instant,
     ): Long {
-        val id = rows.size + 1L
+        val id = nextId++
         rows[id] =
             Bet(
                 id = id,
@@ -90,8 +114,11 @@ class InMemoryBetRepository : BetRepository {
 
 class InMemoryMontanteRepository : MontanteRepository {
     private val rows = linkedMapOf<Long, Montante>()
+    private var nextId = 1L
 
     override fun findAll() = rows.values.toList()
+
+    override fun findByBankroll(bankrollId: Long) = rows.values.filter { it.config.bankrollId == bankrollId }
 
     override fun find(id: Long) = rows[id]
 
@@ -99,7 +126,7 @@ class InMemoryMontanteRepository : MontanteRepository {
         config: MontanteConfig,
         now: Instant,
     ): Long {
-        val id = rows.size + 1L
+        val id = nextId++
         rows[id] = Montante(id, config, now, null)
         return id
     }
@@ -112,11 +139,12 @@ class InMemoryMontanteRepository : MontanteRepository {
 
 class InMemoryRuleRepository : RuleRepository {
     private val rows = linkedMapOf<Long, DisciplineRule>()
+    private var nextId = 1L
 
     override fun findAll() = rows.values.toList()
 
     override fun create(rule: NewRule): Long {
-        val id = rows.size + 1L
+        val id = nextId++
         rows[id] = DisciplineRule(id, rule.kind, rule.param)
         return id
     }

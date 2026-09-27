@@ -1,6 +1,7 @@
 package fr.bergamof.betgamof.inbound.rest
 
 import fr.bergamof.betgamof.business.domain.BetStatus
+import fr.bergamof.betgamof.business.domain.PageRequest
 import fr.bergamof.betgamof.business.port.inbound.BetFilter
 import fr.bergamof.betgamof.business.port.inbound.StatsPeriod
 import io.ktor.http.HttpStatusCode
@@ -18,6 +19,12 @@ private fun ApplicationCall.idParam(): Long = requireNotNull(parameters["id"]?.t
 
 private fun ApplicationCall.optionalLong(name: String): Long? =
     request.queryParameters[name]?.let { requireNotNull(it.toLongOrNull()) { "Paramètre $name invalide" } }
+
+private fun ApplicationCall.optionalInt(name: String): Int? =
+    request.queryParameters[name]?.let { requireNotNull(it.toIntOrNull()) { "Paramètre $name invalide" } }
+
+/** `limit` (and optional `offset`) ask for one page of results; without `limit`, everything is returned. */
+private fun ApplicationCall.optionalPage(): PageRequest? = optionalInt("limit")?.let { PageRequest(it, optionalInt("offset") ?: 0) }
 
 private inline fun <reified T : Enum<T>> ApplicationCall.optionalEnum(name: String): T? =
     request.queryParameters[name]?.let { value ->
@@ -62,6 +69,7 @@ private fun Route.betRoutes(useCases: UseCases) =
                     bookmaker = params["bookmaker"]?.takeIf { it.isNotBlank() },
                     lastDays = call.optionalLong("lastDays"),
                     query = params["q"],
+                    page = call.optionalPage(),
                 )
             call.respond(useCases.bets.list(filter).map { it.toJson() })
         }

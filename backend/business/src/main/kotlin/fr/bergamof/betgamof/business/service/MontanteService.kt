@@ -12,27 +12,25 @@ import fr.bergamof.betgamof.business.port.outbound.MontanteRepository
 import java.time.Clock
 
 class MontanteService(
-    private val portfolio: PortfolioLoader,
+    private val portfolio: Portfolio,
     private val repository: MontanteRepository,
     private val clock: Clock,
 ) : MontanteUseCases {
     override fun list(): List<MontanteView> {
-        val snapshot = portfolio.load()
-        return snapshot.montantes
+        val bankrollNames = portfolio.bankrollNames()
+        return portfolio
+            .allStates()
             .sortedWith(compareBy({ it.second.status != MontanteStatus.ACTIVE }, { -it.first.id }))
-            .map { (montante, state) -> montanteView(montante, state, snapshot) }
+            .map { (montante, state) -> montanteView(montante, state, bankrollNames.getValue(montante.config.bankrollId)) }
     }
 
     override fun get(id: Long): MontanteView {
-        val snapshot = portfolio.load()
-        val (montante, state) = snapshot.montante(id)
-        return montanteView(montante, state, snapshot)
+        val (montante, state) = portfolio.montante(id)
+        return montanteView(montante, state, portfolio.bankroll(montante.config.bankrollId).settings.name)
     }
 
     override fun preview(config: MontanteConfig): MontantePlanView {
-        val snapshot = portfolio.load()
-        snapshot.bankroll(config.bankrollId)
-        val balance = snapshot.position(config.bankrollId).balance
+        val balance = portfolio.position(portfolio.bankroll(config.bankrollId)).balance
         val plan = MontantePlanner.plan(config)
         return MontantePlanView(
             target = plan.target,
@@ -45,16 +43,15 @@ class MontanteService(
     }
 
     override fun create(config: MontanteConfig): MontanteView {
-        val snapshot = portfolio.load()
-        snapshot.bankroll(config.bankrollId)
-        if (config.excludeStake && snapshot.position(config.bankrollId).balance < config.startCapital) {
+        val bankroll = portfolio.bankroll(config.bankrollId)
+        if (config.excludeStake && portfolio.position(bankroll).balance < config.startCapital) {
             throw ConflictException("La bankroll ne couvre pas le capital de départ de la montante")
         }
         return get(repository.create(config, clock.instant()))
     }
 
     override fun close(id: Long): MontanteView {
-        val (montante, state) = portfolio.load().montante(id)
+        val (montante, state) = portfolio.montante(id)
         if (!state.isActive) throw ConflictException("La montante « ${montante.config.name} » est déjà terminée")
         if (state.openBet != null) throw ConflictException("Règle d'abord le pari du palier ${state.currentPalierNumber}")
         repository.close(id, clock.instant())

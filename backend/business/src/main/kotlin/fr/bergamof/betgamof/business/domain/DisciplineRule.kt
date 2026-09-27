@@ -32,6 +32,10 @@ data class DisciplineRule(
 )
 
 data class RuleContext(
+    /**
+     * Bets placed or settled in the rule window, plus the latest decided bets settled before it
+     * (as many as the longest losing streak a rule watches): enough to detect every breach.
+     */
     val bets: List<Bet>,
     val balances: Map<Long, Money>,
     val activeMontantes: Int,
@@ -40,12 +44,14 @@ data class RuleContext(
 
 /** Checks each rule against the last 30 days of activity. */
 object RuleEvaluator {
+    fun window(now: Instant) = Period.last(RULE_WINDOW, now)
+
     fun isRespected(
         rule: DisciplineRule,
         context: RuleContext,
     ): Boolean {
-        val since = context.now - RULE_WINDOW
-        val recent = context.bets.filter { it.placedAt >= since }
+        val window = window(context.now)
+        val recent = context.bets.filter { it.placedAt in window }
         return when (rule.kind) {
             RuleKind.MAX_STAKE_PCT -> recent.filter { it.montanteId == null }.none { exceedsShare(it, rule.param, context.balances) }
             RuleKind.PAUSE_AFTER_LOSSES -> recent.none { betPlacedDuringLossStreak(it, context.bets, rule.param) }

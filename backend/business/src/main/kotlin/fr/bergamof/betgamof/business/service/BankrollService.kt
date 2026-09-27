@@ -2,25 +2,32 @@ package fr.bergamof.betgamof.business.service
 
 import fr.bergamof.betgamof.business.ConflictException
 import fr.bergamof.betgamof.business.NotFoundException
+import fr.bergamof.betgamof.business.domain.Bankroll
+import fr.bergamof.betgamof.business.domain.BankrollPosition
 import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.model.BankrollView
 import fr.bergamof.betgamof.business.port.inbound.BankrollUseCases
 import fr.bergamof.betgamof.business.port.outbound.BankrollRepository
+import fr.bergamof.betgamof.business.port.outbound.BetCriteria
+import fr.bergamof.betgamof.business.port.outbound.BetRepository
+import fr.bergamof.betgamof.business.port.outbound.MontanteRepository
 import java.time.Clock
 
 class BankrollService(
-    private val portfolio: PortfolioLoader,
+    private val portfolio: Portfolio,
     private val repository: BankrollRepository,
+    private val bets: BetRepository,
+    private val montantes: MontanteRepository,
     private val clock: Clock,
 ) : BankrollUseCases {
     override fun list(): List<BankrollView> {
-        val snapshot = portfolio.load()
-        return snapshot.bankrolls.map { it.toView(snapshot.position(it.id), snapshot.bets) }
+        val positions = portfolio.positions()
+        return repository.findAll().map { view(it, positions.getValue(it.id)) }
     }
 
     override fun get(id: Long): BankrollView {
-        val snapshot = portfolio.load()
-        return snapshot.bankroll(id).toView(snapshot.position(id), snapshot.bets)
+        val bankroll = portfolio.bankroll(id)
+        return view(bankroll, portfolio.position(bankroll))
     }
 
     override fun create(settings: BankrollSettings): BankrollView = get(repository.create(settings, clock.instant()))
@@ -34,11 +41,14 @@ class BankrollService(
     }
 
     override fun delete(id: Long) {
-        val snapshot = portfolio.load()
-        snapshot.bankroll(id)
-        val inUse =
-            snapshot.bets.any { it.bankrollId == id } || snapshot.montantes.any { (montante, _) -> montante.config.bankrollId == id }
+        portfolio.bankroll(id)
+        val inUse = bets.count(BetCriteria(bankrollId = id)) > 0 || montantes.findByBankroll(id).isNotEmpty()
         if (inUse) throw ConflictException("Cette bankroll contient des paris ou des montantes : elle ne peut pas être supprimée")
         repository.delete(id)
     }
+
+    private fun view(
+        bankroll: Bankroll,
+        position: BankrollPosition,
+    ) = bankroll.toView(position, bets.count(BetCriteria(bankrollId = bankroll.id)), bets.bookmakersByUsage(bankroll.id))
 }

@@ -14,6 +14,7 @@ import fr.bergamof.betgamof.business.domain.NewRule
 import fr.bergamof.betgamof.business.domain.RuleKind
 import fr.bergamof.betgamof.business.domain.Selection
 import fr.bergamof.betgamof.business.domain.Settlement
+import fr.bergamof.betgamof.business.port.outbound.BetCriteria
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.time.Instant
@@ -113,8 +114,17 @@ class SqlitePersistenceTest {
         val id = betId()
 
         assertTrue(persistence.bets.delete(id))
-        assertEquals(emptyList(), persistence.bets.findAll())
+        assertEquals(emptyList(), persistence.bets.find(BetCriteria()))
         assertFalse(persistence.bets.delete(id))
+    }
+
+    @Test
+    fun `montantes are found by bankroll`() {
+        val id = montanteId()
+        val other = persistence.bankrolls.create(settings, now)
+
+        assertEquals(listOf(id), persistence.montantes.findByBankroll(bankrollId).map { it.id })
+        assertEquals(emptyList(), persistence.montantes.findByBankroll(other))
     }
 
     @Test

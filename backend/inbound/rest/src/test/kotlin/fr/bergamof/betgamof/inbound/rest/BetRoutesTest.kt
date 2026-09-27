@@ -4,6 +4,7 @@ import fr.bergamof.betgamof.business.domain.BetChange
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
 import fr.bergamof.betgamof.business.domain.NewBet
+import fr.bergamof.betgamof.business.domain.PageRequest
 import fr.bergamof.betgamof.business.domain.Selection
 import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.inbound.BetFilter
@@ -40,6 +41,22 @@ class BetRoutesTest : RestTest() {
                 )
 
             assertEquals(HttpStatusCode.OK, response.status)
+        }
+
+    @Test
+    fun `limit and offset ask for one page`() =
+        api {
+            every { bets.list(BetFilter(page = PageRequest(20, 40))) } returns emptyList()
+
+            assertEquals(HttpStatusCode.OK, client.call(HttpMethod.Get, "/api/bets?limit=20&offset=40").status)
+        }
+
+    @Test
+    fun `an empty page is a bad request`() =
+        api {
+            val response = client.call(HttpMethod.Get, "/api/bets?limit=0")
+
+            assertEquals("La taille de page doit être positive", response.jsonObject().at("message"))
         }
 
     @Test

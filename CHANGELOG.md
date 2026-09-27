@@ -15,6 +15,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 
 ### Changed
 
+- Backend : chaque requête ne lit plus que les paris dont elle a besoin (critères `BetCriteria` traduits en SQL, période, pagination) au lieu de tout l'historique ; soldes calculés à partir de totaux agrégés. `GET /api/bets` accepte `limit` et `offset` (facultatifs, sans eux tout est renvoyé comme avant).
 - Backend restructuré en modules `business` (domaine, ports et logique métier, sans dépendance), `inbound/rest`, `outbound/persistence/sqlite`, `outbound/odds` et `application` (démarrage et câblage) ; `domain`, `adapters/*`, `app` et `buildSrc` supprimés, configuration commune dans `backend/build.gradle.kts`. Contrat JSON de l'API inchangé.
 - Objets du domaine `BetChange` et `NewRule` : la modification d'un pari et l'ajout d'une règle passent eux aussi par des objets du domaine validés.
 - Tests unitaires dans chaque module avec un seuil de couverture de 80 % (Kover, vérifié par `check` et la CI) ; tests composant de bout en bout dans `application` (`componentTest`).

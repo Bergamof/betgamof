@@ -4,7 +4,9 @@ import fr.bergamof.betgamof.business.NotFoundException
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.NewRule
 import fr.bergamof.betgamof.business.domain.RuleKind
+import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.inbound.StatsPeriod
+import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -62,6 +64,44 @@ class InsightServiceTest {
         val rules = insights.addRule(NewRule(RuleKind.SINGLE_ACTIVE_MONTANTE, 0))
 
         assertEquals(listOf(false, true), rules.map { it.respected })
+    }
+
+    private fun settledDaysAgo(
+        days: Long,
+        status: BetStatus,
+    ) {
+        val at = fixture.clock.instant().minus(Duration.ofDays(days))
+        val id = fixture.betRepository.create(fixture.newBet(bankrollId), at)
+        fixture.betRepository.settle(id, Settlement(status, null), at.plusSeconds(60))
+    }
+
+    @Test
+    fun `a losing streak ended before the window still pauses the bets placed in it`() {
+        settledDaysAgo(41, BetStatus.WON)
+        settledDaysAgo(40, BetStatus.LOST)
+        settledDaysAgo(39, BetStatus.LOST)
+        fixture.bets.create(fixture.newBet(bankrollId))
+
+        assertEquals(false, insights.addRule(NewRule(RuleKind.PAUSE_AFTER_LOSSES, 2)).single().respected)
+    }
+
+    @Test
+    fun `a win before the window ends the losing streak`() {
+        settledDaysAgo(41, BetStatus.LOST)
+        settledDaysAgo(40, BetStatus.LOST)
+        settledDaysAgo(39, BetStatus.WON)
+        fixture.bets.create(fixture.newBet(bankrollId))
+
+        assertEquals(true, insights.addRule(NewRule(RuleKind.PAUSE_AFTER_LOSSES, 2)).single().respected)
+    }
+
+    @Test
+    fun `stats only count the bets placed in the period`() {
+        settledDaysAgo(40, BetStatus.WON)
+        fixture.placeAndSettle(fixture.newBet(bankrollId), BetStatus.LOST)
+
+        assertEquals(1, insights.stats(StatsPeriod.DAYS_30, null).settledCount)
+        assertEquals(2, insights.stats(StatsPeriod.ALL, null).settledCount)
     }
 
     @Test

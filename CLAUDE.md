@@ -16,7 +16,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - `backend/` — hexagonale, dépendances uniquement vers `business` (garanties par les modules Gradle) :
   - `business/` — Kotlin pur, **aucune dépendance** (paquets `fr.bergamof.betgamof.business.*`) :
     - `domain/` — objets et calculs : `Money` (centimes), `Bet`/`NewBet`/`BetChange`/`Settlement`, `Montante*`, `MontantePlanner` (aperçu, cote requise), `MontanteEngine` (rejoue les paris d'une montante), `BankrollLedger` (soldes), `KellyAdvisor`, `Stats`, `DisciplineRule`/`NewRule`, `SportEvent`.
-    - `port/inbound/UseCases.kt` (ports entrants : `BankrollUseCases`, `BetUseCases`, `MontanteUseCases`, `InsightUseCases`, `EventUseCases`), `port/outbound/` (ports sortants : repositories, `EventCatalog`), `service/` (logique métier ; `PortfolioSnapshot` = bankrolls + paris + états de montantes dérivés), `model/Views.kt` (read models), `Errors.kt`.
+    - `port/inbound/UseCases.kt` (ports entrants : `BankrollUseCases`, `BetUseCases`, `MontanteUseCases`, `InsightUseCases`, `EventUseCases`), `port/outbound/` (ports sortants : repositories, `BetCriteria` = critères de sélection des paris dont `matches()` fait référence, `EventCatalog`), `service/` (logique métier ; `Portfolio` = lectures ciblées : état d'une montante rejoué avec ses seuls paris, soldes à partir de totaux agrégés `BetTotals`), `model/Views.kt` (read models), `Errors.kt`.
     - `src/testFixtures/` — fakes en mémoire des ports sortants (`InMemoryRepositories.kt`), réutilisés par `application`.
   - `inbound/rest/` — adaptateur entrant Ktor : `HttpApi.kt` (`betgamofApi(useCases, token)`), routes, DTO requêtes (`Requests.kt`, `toXxx()` → objets du domaine) et réponses `*Json.kt` + mappers `toJson()`, auth bearer, erreurs → HTTP. Seul module qui connaît kotlinx.serialization.
   - `outbound/persistence/sqlite/` — adaptateur sortant Exposed/SQLite (`outbound/persistence/` ne fait que regrouper un sous-module par base : une autre base en prod = un module frère implémentant les mêmes ports) : `SqlitePersistence` (façade publique), repositories et tables `internal` (mapping lignes ↔ domaine uniquement ici) ; migrations Flyway dans `src/main/resources/db/migration/`.
@@ -33,6 +33,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 ## Modèle de domaine
 - Bankroll — solde initial + stop-loss + fraction de Kelly + mise fixe ; **solde jamais stocké**, calculé par `BankrollLedger`.
 - Bet — sélections (1 = simple, ≥2 = combiné/système), cote, mise, statut OPEN/WON/LOST/VOID/CASHOUT ; peut appartenir à une montante (un pari = un palier).
+- Lecture des paris — jamais tout l'historique « par défaut » : chaque cas d'usage charge ce qu'il lui faut via `BetCriteria` (période `Period`, bankroll, montantes, statut, page…). Liste des paris paginable (`limit`/`offset`), soldes via `directTotalsByBankroll()` (lignes parcourues sans être gardées). Seules les statistiques d'une période chargent ses paris.
 - Montante — config seule en base (+ `closed_at` manuel) ; état (capital, sécurisé, engagé, relances, statut) **dérivé** par `MontanteEngine` en rejouant ses paris par `placed_at`.
 - DisciplineRule — MAX_STAKE_PCT, PAUSE_AFTER_LOSSES, SINGLE_ACTIVE_MONTANTE ; évaluée sur 30 jours.
 
@@ -44,10 +45,12 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - 2026-09-23 — Kelly : proba = 1/cote corrigée par l'historique de la tranche de cote (lissage, poids 10), puis fraction de Kelly de la bankroll.
 - 2026-09-26 — Architecture hexagonale en modules Gradle `business` / `inbound/*` / `outbound/*` (persistance : `outbound/persistence/<techno>`) / `application` : le compilateur interdit les dépendances vers l'extérieur ; `business` ne connaît ni Ktor, ni Exposed, ni la sérialisation. Les adaptateurs mappent vers/depuis les objets du domaine chez eux.
 - 2026-09-26 — Pas de `buildSrc` : plugins déclarés `apply false` à la racine et appliqués via `configure(subprojects.filter { it.buildFile.exists() })` (les modules de regroupement n'ont pas de build script) ; seuil Kover 80 % de lignes par module, vérifié par `check`.
+- 2026-09-27 — Lectures ciblées plutôt qu'un instantané global (`PortfolioSnapshot` supprimé) : mémoire et temps par requête bornés par ce que la requête affiche. La règle de gain reste dans le domaine (`profitOf`, `BetTotals.add`) ; l'adaptateur SQL filtre/trie/pagine mais ne recalcule rien. Un test de contrat (`BetQueriesTest`) vérifie que la traduction SQL de chaque critère = `BetCriteria.matches`.
 - 2026-09-23 — Versions d'outils épinglées dans `.sdkmanrc` (JDK) et `.nvmrc` (Node) ; la CI les lit (`java-version-file`, `node-version-file`) : changer de version = modifier ces fichiers, plus les images des Dockerfiles.
 - 2026-09-23 — Auth : mot de passe unique côté SvelteKit + jeton partagé SvelteKit → API ; l'API n'est pas exposée publiquement.
 
 ## Pièges et conventions spécifiques
+- SQLite : instants stockés en texte ISO de longueur variable (fractions de seconde) → comparer/trier via `julianday(...)`, jamais en texte. `LIKE`/`lower()` n'ignorent la casse que pour l'ASCII (« é » ≠ « É » en SQL, contrairement à `BetCriteria.matches`). Jokers `%`/`_` échappés.
 - Exposed 1.x : imports `org.jetbrains.exposed.v1.core/jdbc`, opérateurs top-level (`import org.jetbrains.exposed.v1.core.eq`).
 - Une classe `@Serializable` ne doit pas avoir de `companion object` privé (lookup du serializer cassé) : constantes au niveau fichier.
 - Nouveau champ exposé par l'API : l'ajouter au read model (`business/.../model/Views.kt`), au DTO `inbound/rest/*Json.kt` + son mapper `toJson()`, puis à `frontend/src/lib/api/types.ts`.
@@ -75,7 +78,7 @@ AGPL-3.0 — tout nouveau fichier et toute dépendance doivent rester compatible
 
 ## Git
 - Conventional Commits (anglais, impératif) ; branches `feat/…`, `fix/…`, `chore/…` depuis `main`.
-- Noms de branche parlants : kebab-case décrivant précisément le travail en cours (ex. `feat/user-signup-email-validation`) ; jamais `fix/bug`, `wip`, `test` ou identifiant aléatoire. Préfixe imposé par l'outil (ex. `claude/`) conservé, mais suite parlante. Renommer si le périmètre change, avant push/PR.
+- Noms de branche parlants : kebab-case décrivant précisément le travail en cours (ex. `feat/user-signup-email-validation`) ; jamais `fix/bug`, `wip`, `test` ou identifiant aléatoire. Préfixe imposé par l'outil (ex. `claude/`) conservé, mais suite parlante (ex. `claude/perf/scoped-repository-queries`). Renommer si le périmètre change, avant push/PR. **Impératif** : si l'outil impose une branche au nom non parlant, le signaler et demander avant le premier push, jamais après.
 - Mettre à jour `CHANGELOG.md` (Keep a Changelog) pour tout changement notable.
 - Avant chaque commit : lint + tests au vert.
 

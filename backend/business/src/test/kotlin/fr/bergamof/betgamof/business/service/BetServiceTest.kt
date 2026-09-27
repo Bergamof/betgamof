@@ -6,6 +6,7 @@ import fr.bergamof.betgamof.business.domain.BetChange
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
 import fr.bergamof.betgamof.business.domain.Money
+import fr.bergamof.betgamof.business.domain.PageRequest
 import fr.bergamof.betgamof.business.domain.Selection
 import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.inbound.BetFilter
@@ -165,6 +166,20 @@ class BetServiceTest {
         assertEquals(listOf(recent.id), ids(BetFilter(lastDays = 30)))
         assertEquals(listOf(old.id), ids(BetFilter(query = " betclic ")))
         assertEquals(listOf(recent.id, old.id), ids(BetFilter(query = "lyon")))
+    }
+
+    @Test
+    fun `a page of bets skips then limits the sorted list`() {
+        val ids = (1..4).map { bets.create(fixture.newBet(bankrollId, startsInSeconds = it * 60L)).id }
+
+        assertEquals(listOf(ids[2], ids[1]), ids(BetFilter(page = PageRequest(limit = 2, offset = 1))))
+    }
+
+    @Test
+    fun `kelly only learns from decided bets in the same odds range`() {
+        repeat(20) { fixture.placeAndSettle(fixture.newBet(bankrollId, odds = 3.5), BetStatus.WON) }
+
+        assertEquals(Money.ZERO, bets.kelly(bankrollId, 2.0).stake)
     }
 
     @Test
