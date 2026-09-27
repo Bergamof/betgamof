@@ -11,7 +11,7 @@ import fr.bergamof.betgamof.business.service.PortfolioLoader
 import fr.bergamof.betgamof.inbound.rest.UseCases
 import fr.bergamof.betgamof.inbound.rest.betgamofApi
 import fr.bergamof.betgamof.outbound.odds.SimulatedEventCatalog
-import fr.bergamof.betgamof.outbound.persistence.SqlitePersistence
+import fr.bergamof.betgamof.outbound.persistence.sqlite.SqlitePersistence
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty

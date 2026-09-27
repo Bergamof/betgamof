@@ -13,7 +13,7 @@ plugins {
 /** Minimum line coverage of each module, checked by `koverVerify` (part of `check`). */
 val minimumCoveragePercent = 80
 
-// Shared setup of every module with a build script (`inbound` and `outbound` only group adapters):
+// Shared setup of every module with a build script (`inbound`, `outbound` and `outbound/persistence` only group adapters):
 // Kotlin/JVM 21, ktlint, detekt, JUnit 5 and a coverage threshold.
 configure(subprojects.filter { it.buildFile.exists() }) {
     apply(plugin = "org.jetbrains.kotlin.jvm")

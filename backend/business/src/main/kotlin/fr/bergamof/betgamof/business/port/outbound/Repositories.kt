@@ -12,7 +12,7 @@ import fr.bergamof.betgamof.business.domain.NewRule
 import fr.bergamof.betgamof.business.domain.Settlement
 import java.time.Instant
 
-// Driven ports: what the business needs from storage. Implemented by outbound/persistence.
+// Driven ports: what the business needs from storage. Implemented by outbound/persistence/* (SQLite today).
 
 interface BankrollRepository {
     fun findAll(): List<Bankroll>

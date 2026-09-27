@@ -19,7 +19,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
     - `port/inbound/UseCases.kt` (ports entrants : `BankrollUseCases`, `BetUseCases`, `MontanteUseCases`, `InsightUseCases`, `EventUseCases`), `port/outbound/` (ports sortants : repositories, `EventCatalog`), `service/` (logique métier ; `PortfolioSnapshot` = bankrolls + paris + états de montantes dérivés), `model/Views.kt` (read models), `Errors.kt`.
     - `src/testFixtures/` — fakes en mémoire des ports sortants (`InMemoryRepositories.kt`), réutilisés par `application`.
   - `inbound/rest/` — adaptateur entrant Ktor : `HttpApi.kt` (`betgamofApi(useCases, token)`), routes, DTO requêtes (`Requests.kt`, `toXxx()` → objets du domaine) et réponses `*Json.kt` + mappers `toJson()`, auth bearer, erreurs → HTTP. Seul module qui connaît kotlinx.serialization.
-  - `outbound/persistence/` — adaptateur sortant Exposed/SQLite : `SqlitePersistence` (façade publique), repositories et tables `internal` (mapping lignes ↔ domaine uniquement ici) ; migrations Flyway dans `src/main/resources/db/migration/`.
+  - `outbound/persistence/sqlite/` — adaptateur sortant Exposed/SQLite (`outbound/persistence/` ne fait que regrouper un sous-module par base : une autre base en prod = un module frère implémentant les mêmes ports) : `SqlitePersistence` (façade publique), repositories et tables `internal` (mapping lignes ↔ domaine uniquement ici) ; migrations Flyway dans `src/main/resources/db/migration/`.
   - `outbound/odds/` — adaptateur sortant : catalogue d'événements **simulé** (`SimulatedEventCatalog` implémente `EventCatalog`).
   - `application/` — démarrage et câblage : `Application.kt` (adaptateurs → services → API), `config/AppConfig.kt`, `seed/DemoSeeder.kt`, `logback.xml` ; tests unitaires (`src/test`) + tests composant HTTP de bout en bout sur SQLite (`src/componentTest`, suite Gradle `componentTest`).
 - `frontend/src/`
@@ -42,8 +42,8 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - 2026-09-23 — États dérivés (soldes, montantes) plutôt que stockés : une seule source de vérité, pas de désynchronisation.
 - 2026-09-23 — Effet d'une montante sur sa bankroll = sécurisé − engagé + (capital si mise non exclue ou montante terminée). Une relance réengage le capital de départ.
 - 2026-09-23 — Kelly : proba = 1/cote corrigée par l'historique de la tranche de cote (lissage, poids 10), puis fraction de Kelly de la bankroll.
-- 2026-09-26 — Architecture hexagonale en modules Gradle `business` / `inbound/*` / `outbound/*` / `application` : le compilateur interdit les dépendances vers l'extérieur ; `business` ne connaît ni Ktor, ni Exposed, ni la sérialisation. Les adaptateurs mappent vers/depuis les objets du domaine chez eux.
-- 2026-09-26 — Pas de `buildSrc` : plugins déclarés `apply false` à la racine et appliqués via `configure(subprojects.filter { it.buildFile.exists() })` ; seuil Kover 80 % de lignes par module, vérifié par `check`.
+- 2026-09-26 — Architecture hexagonale en modules Gradle `business` / `inbound/*` / `outbound/*` (persistance : `outbound/persistence/<techno>`) / `application` : le compilateur interdit les dépendances vers l'extérieur ; `business` ne connaît ni Ktor, ni Exposed, ni la sérialisation. Les adaptateurs mappent vers/depuis les objets du domaine chez eux.
+- 2026-09-26 — Pas de `buildSrc` : plugins déclarés `apply false` à la racine et appliqués via `configure(subprojects.filter { it.buildFile.exists() })` (les modules de regroupement n'ont pas de build script) ; seuil Kover 80 % de lignes par module, vérifié par `check`.
 - 2026-09-23 — Versions d'outils épinglées dans `.sdkmanrc` (JDK) et `.nvmrc` (Node) ; la CI les lit (`java-version-file`, `node-version-file`) : changer de version = modifier ces fichiers, plus les images des Dockerfiles.
 - 2026-09-23 — Auth : mot de passe unique côté SvelteKit + jeton partagé SvelteKit → API ; l'API n'est pas exposée publiquement.
 

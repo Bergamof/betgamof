@@ -4,7 +4,7 @@ COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties detekt.yml .
 COPY gradle gradle
 COPY business/build.gradle.kts business/
 COPY inbound/rest/build.gradle.kts inbound/rest/
-COPY outbound/persistence/build.gradle.kts outbound/persistence/
+COPY outbound/persistence/sqlite/build.gradle.kts outbound/persistence/sqlite/
 COPY outbound/odds/build.gradle.kts outbound/odds/
 COPY application/build.gradle.kts application/
 # Resolve dependencies in their own layer so code changes don't re-download them.

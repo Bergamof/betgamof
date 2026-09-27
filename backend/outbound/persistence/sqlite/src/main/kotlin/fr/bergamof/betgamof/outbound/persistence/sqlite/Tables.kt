@@ -1,4 +1,4 @@
-package fr.bergamof.betgamof.outbound.persistence
+package fr.bergamof.betgamof.outbound.persistence.sqlite
 
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.dao.id.LongIdTable

@@ -26,7 +26,7 @@ Le backend est découpé en modules Gradle dont les dépendances pointent unique
 | ----------------------- | -------------------------------------------------------------------------------------------- |
 | `business`              | Cœur métier en Kotlin pur, sans dépendance : objets du domaine, ports entrants et sortants, services |
 | `inbound/rest`          | Adaptateur entrant : API REST Ktor, DTO JSON mappés en objets du domaine, authentification   |
-| `outbound/persistence`  | Adaptateur sortant : SQLite via Exposed + migrations Flyway                                  |
+| `outbound/persistence/sqlite` | Adaptateur sortant : SQLite via Exposed + migrations Flyway (un sous-module par base de données) |
 | `outbound/odds`         | Adaptateur sortant : catalogue d'événements et de cotes (simulé pour l'instant)              |
 | `application`           | Démarrage : configuration, câblage des couches, point d'entrée, données de démo, tests composant |
 

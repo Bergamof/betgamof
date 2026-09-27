@@ -11,7 +11,7 @@ application {
 dependencies {
     implementation(project(":business"))
     implementation(project(":inbound:rest"))
-    implementation(project(":outbound:persistence"))
+    implementation(project(":outbound:persistence:sqlite"))
     implementation(project(":outbound:odds"))
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)

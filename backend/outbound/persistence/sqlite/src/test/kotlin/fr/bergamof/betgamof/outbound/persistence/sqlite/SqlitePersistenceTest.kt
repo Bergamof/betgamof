@@ -1,4 +1,4 @@
-package fr.bergamof.betgamof.outbound.persistence
+package fr.bergamof.betgamof.outbound.persistence.sqlite
 
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings

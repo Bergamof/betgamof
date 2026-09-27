@@ -1,4 +1,4 @@
-package fr.bergamof.betgamof.outbound.persistence
+package fr.bergamof.betgamof.outbound.persistence.sqlite
 
 import fr.bergamof.betgamof.business.port.outbound.BankrollRepository
 import fr.bergamof.betgamof.business.port.outbound.BetRepository
