@@ -6,6 +6,8 @@ import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.MontanteConfig
 import fr.bergamof.betgamof.business.domain.NewBet
 import fr.bergamof.betgamof.business.domain.NewRule
+import fr.bergamof.betgamof.business.domain.PageRequest
+import fr.bergamof.betgamof.business.domain.Period
 import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.domain.SportEvent
 import fr.bergamof.betgamof.business.model.BankrollView
@@ -15,6 +17,8 @@ import fr.bergamof.betgamof.business.model.MontantePlanView
 import fr.bergamof.betgamof.business.model.MontanteView
 import fr.bergamof.betgamof.business.model.RuleView
 import fr.bergamof.betgamof.business.model.StatsView
+import java.time.Duration
+import java.time.Instant
 
 // Driving ports: everything the outside world (the REST API) may ask the business.
 
@@ -40,6 +44,8 @@ data class BetFilter(
     val bookmaker: String? = null,
     val lastDays: Long? = null,
     val query: String? = null,
+    /** Without a page, every matching bet is returned. */
+    val page: PageRequest? = null,
 )
 
 interface BetUseCases {
@@ -86,6 +92,9 @@ enum class StatsPeriod(
     DAYS_30(30),
     MONTHS_3(90),
     ALL(null),
+    ;
+
+    fun toPeriod(now: Instant) = days?.let { Period.last(Duration.ofDays(it), now) } ?: Period.ALL
 }
 
 interface InsightUseCases {

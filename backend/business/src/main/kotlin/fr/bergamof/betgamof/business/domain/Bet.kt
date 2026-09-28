@@ -83,15 +83,22 @@ data class Bet(
 
     val potentialReturn get() = stake * odds
 
-    val profit: Money
-        get() =
-            when (status) {
-                BetStatus.WON -> stake * (odds - 1)
-                BetStatus.LOST -> -stake
-                BetStatus.CASHOUT -> (cashout ?: Money.ZERO) - stake
-                BetStatus.OPEN, BetStatus.VOID -> Money.ZERO
-            }
+    val profit get() = profitOf(status, stake, odds, cashout)
 }
+
+/** Net result of a bet: the single definition used for bets and for aggregated totals. */
+fun profitOf(
+    status: BetStatus,
+    stake: Money,
+    odds: Double,
+    cashout: Money?,
+): Money =
+    when (status) {
+        BetStatus.WON -> stake * (odds - 1)
+        BetStatus.LOST -> -stake
+        BetStatus.CASHOUT -> (cashout ?: Money.ZERO) - stake
+        BetStatus.OPEN, BetStatus.VOID -> Money.ZERO
+    }
 
 data class Settlement(
     val status: BetStatus,

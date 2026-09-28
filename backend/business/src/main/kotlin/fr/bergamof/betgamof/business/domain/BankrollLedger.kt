@@ -14,18 +14,16 @@ data class BankrollPosition(
 
 /**
  * Computes a bankroll balance from its history rather than storing it:
- * settled direct bets, plus each montante's effect on the bankroll.
+ * totals of its settled direct bets, plus each montante's effect on the bankroll.
  */
 object BankrollLedger {
+    /** [directBets]: totals of the bets placed directly on the bankroll (outside any montante). */
     fun position(
         bankroll: Bankroll,
-        bets: List<Bet>,
+        directBets: BetTotals,
         montantes: List<Pair<Montante, MontanteState>>,
     ): BankrollPosition {
-        val directBets = bets.filter { it.bankrollId == bankroll.id && it.montanteId == null }
         val ownMontantes = montantes.filter { (montante, _) -> montante.config.bankrollId == bankroll.id }
-        val settled = directBets.filter { it.isSettled }
-        val directProfit = settled.map { it.profit }.sum()
         val montanteEffect = ownMontantes.map { (montante, state) -> montanteEffect(montante, state) }.sum()
         val montanteProfit =
             ownMontantes
@@ -38,11 +36,11 @@ object BankrollLedger {
                 .map { (_, state) -> state.engaged }
                 .sum()
         return BankrollPosition(
-            balance = bankroll.settings.initialBalance + directProfit + montanteEffect,
+            balance = bankroll.settings.initialBalance + directBets.profit + montanteEffect,
             outsideMontantes = outside,
-            openStake = directBets.filter { it.isOpen }.map { it.stake }.sum(),
-            staked = settled.map { it.stake }.sum(),
-            profit = directProfit + montanteProfit,
+            openStake = directBets.openStake,
+            staked = directBets.staked,
+            profit = directBets.profit + montanteProfit,
         )
     }
 

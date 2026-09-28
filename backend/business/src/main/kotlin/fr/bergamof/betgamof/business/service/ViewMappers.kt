@@ -30,37 +30,32 @@ internal fun Bet.competition(): String = selections.map { it.competition }.disti
 
 internal fun Bankroll.toView(
     position: BankrollPosition,
-    bets: List<Bet>,
-): BankrollView {
-    val own = bets.filter { it.bankrollId == id }
-    return BankrollView(
-        id = id,
-        name = settings.name,
-        color = settings.color,
-        initialBalance = settings.initialBalance,
-        balance = position.balance,
-        stopLoss = settings.stopLoss,
-        stopLossMargin = settings.stopLoss?.let { position.balance - it },
-        kellyFraction = settings.kellyFraction,
-        fixedStake = settings.fixedStake,
-        outsideMontantes = position.outsideMontantes,
-        openStake = position.openStake,
-        staked = position.staked,
-        profit = position.profit,
-        roi = position.roi,
-        betCount = own.size,
-        bookmakers =
-            own
-                .groupingBy { it.bookmaker }
-                .eachCount()
-                .entries
-                .sortedByDescending { it.value }
-                .map { it.key },
-    )
-}
+    betCount: Int,
+    bookmakers: List<String>,
+) = BankrollView(
+    id = id,
+    name = settings.name,
+    color = settings.color,
+    initialBalance = settings.initialBalance,
+    balance = position.balance,
+    stopLoss = settings.stopLoss,
+    stopLossMargin = settings.stopLoss?.let { position.balance - it },
+    kellyFraction = settings.kellyFraction,
+    fixedStake = settings.fixedStake,
+    outsideMontantes = position.outsideMontantes,
+    openStake = position.openStake,
+    staked = position.staked,
+    profit = position.profit,
+    roi = position.roi,
+    betCount = betCount,
+    bookmakers = bookmakers,
+)
 
-internal fun Bet.toView(snapshot: PortfolioSnapshot): BetView {
-    val montanteEntry = montanteId?.let { id -> snapshot.montantes.firstOrNull { (montante, _) -> montante.id == id } }
+/** [montanteEntry]: the montante this bet belongs to, if any, with its state. */
+internal fun Bet.toView(
+    bankrollName: String,
+    montanteEntry: MontanteEntry?,
+): BetView {
     val palierNumber =
         montanteEntry?.let { (_, state) ->
             state.paliers.firstOrNull { it.bet.id == id }?.number ?: state.currentPalierNumber
@@ -68,7 +63,7 @@ internal fun Bet.toView(snapshot: PortfolioSnapshot): BetView {
     return BetView(
         id = id,
         bankrollId = bankrollId,
-        bankrollName = snapshot.bankroll(bankrollId).settings.name,
+        bankrollName = bankrollName,
         montanteId = montanteId,
         montanteName = montanteEntry?.first?.config?.name,
         palierNumber = palierNumber,
@@ -96,7 +91,7 @@ internal fun Segment.toView() = SegmentView(label, count, staked, profit, yield)
 internal fun montanteView(
     montante: Montante,
     state: MontanteState,
-    snapshot: PortfolioSnapshot,
+    bankrollName: String,
 ): MontanteView {
     val config = montante.config
     val remainingSteps = state.remainingSteps
@@ -104,7 +99,7 @@ internal fun montanteView(
         id = montante.id,
         name = config.name,
         bankrollId = config.bankrollId,
-        bankrollName = snapshot.bankroll(config.bankrollId).settings.name,
+        bankrollName = bankrollName,
         mode = config.mode,
         targetMultiplier = config.targetMultiplier,
         stepCount = config.stepCount,
@@ -136,7 +131,7 @@ internal fun montanteView(
                 ?.settledAt
                 ?.takeIf { !state.isActive },
         paliers = state.paliers.map { it.toView() },
-        nextStep = if (state.isActive) nextStep(montante, state, snapshot, remainingSteps) else null,
+        nextStep = if (state.isActive) nextStep(montante, state, bankrollName, remainingSteps) else null,
     )
 }
 
@@ -173,7 +168,7 @@ private fun Palier.toView() =
 private fun nextStep(
     montante: Montante,
     state: MontanteState,
-    snapshot: PortfolioSnapshot,
+    bankrollName: String,
     remainingSteps: Int?,
 ): NextStepView {
     val config = montante.config
@@ -188,7 +183,7 @@ private fun nextStep(
             state.target?.let { target ->
                 MontantePlanner.requiredOdds(state.capital, target, (remainingSteps ?: 1).coerceAtLeast(1), config.secureRatio)
             },
-        openBet = openBet?.toView(snapshot),
+        openBet = openBet?.toView(bankrollName, montante to state),
         capitalIfWon = gainIfWon?.capitalAfter,
         securedIfWon = gainIfWon?.secured,
         ifLost =

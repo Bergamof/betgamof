@@ -14,6 +14,7 @@ import fr.bergamof.betgamof.business.domain.RuleKind
 import fr.bergamof.betgamof.business.domain.Selection
 import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.outbound.BankrollRepository
+import fr.bergamof.betgamof.business.port.outbound.BetCriteria
 import fr.bergamof.betgamof.business.port.outbound.BetRepository
 import fr.bergamof.betgamof.business.port.outbound.MontanteRepository
 import fr.bergamof.betgamof.business.port.outbound.RuleRepository
@@ -195,7 +196,7 @@ class DemoSeeder(
         result: BetStatus?,
     ) {
         val montante = requireNotNull(montantes.find(montanteId))
-        val state = MontanteEngine.replay(montante, bets.findAll().filter { it.montanteId == montanteId })
+        val state = MontanteEngine.replay(montante, bets.find(BetCriteria(montanteIds = setOf(montanteId))))
         val bet = NewBet(bankrollId, montanteId, BetType.SIMPLE, bookmaker, state.capital, selection.odds, startsAt, listOf(selection))
         record(bet, startsAt - Duration.ofHours(4), result)
     }

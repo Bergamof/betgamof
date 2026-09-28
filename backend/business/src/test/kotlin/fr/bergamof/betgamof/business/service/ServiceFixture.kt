@@ -26,11 +26,11 @@ class ServiceFixture {
     val betRepository = InMemoryBetRepository()
     val montanteRepository = InMemoryMontanteRepository()
     val ruleRepository = InMemoryRuleRepository()
-    private val portfolio = PortfolioLoader(bankrollRepository, betRepository, montanteRepository)
-    val bankrolls = BankrollService(portfolio, bankrollRepository, clock)
-    val bets = BetService(portfolio, betRepository, clock)
+    private val portfolio = Portfolio(bankrollRepository, betRepository, montanteRepository)
+    val bankrolls = BankrollService(portfolio, bankrollRepository, betRepository, montanteRepository, clock)
+    val bets = BetService(portfolio, betRepository, montanteRepository, clock)
     val montantes = MontanteService(portfolio, montanteRepository, clock)
-    val insights = InsightService(portfolio, ruleRepository, clock, ZoneId.of("Europe/Paris"))
+    val insights = InsightService(portfolio, betRepository, montanteRepository, ruleRepository, clock, ZoneId.of("Europe/Paris"))
 
     fun bankroll(
         initialBalance: Int = 1000,

@@ -7,7 +7,7 @@ import fr.bergamof.betgamof.business.service.BetService
 import fr.bergamof.betgamof.business.service.EventService
 import fr.bergamof.betgamof.business.service.InsightService
 import fr.bergamof.betgamof.business.service.MontanteService
-import fr.bergamof.betgamof.business.service.PortfolioLoader
+import fr.bergamof.betgamof.business.service.Portfolio
 import fr.bergamof.betgamof.inbound.rest.UseCases
 import fr.bergamof.betgamof.inbound.rest.betgamofApi
 import fr.bergamof.betgamof.outbound.odds.SimulatedEventCatalog
@@ -31,13 +31,13 @@ fun Application.module(
     if (config.seedDemoData) {
         DemoSeeder(persistence.bankrolls, persistence.bets, persistence.montantes, persistence.rules, clock, config.zone).seedIfEmpty()
     }
-    val portfolio = PortfolioLoader(persistence.bankrolls, persistence.bets, persistence.montantes)
+    val portfolio = Portfolio(persistence.bankrolls, persistence.bets, persistence.montantes)
     val useCases =
         UseCases(
-            bankrolls = BankrollService(portfolio, persistence.bankrolls, clock),
-            bets = BetService(portfolio, persistence.bets, clock),
+            bankrolls = BankrollService(portfolio, persistence.bankrolls, persistence.bets, persistence.montantes, clock),
+            bets = BetService(portfolio, persistence.bets, persistence.montantes, clock),
             montantes = MontanteService(portfolio, persistence.montantes, clock),
-            insights = InsightService(portfolio, persistence.rules, clock, config.zone),
+            insights = InsightService(portfolio, persistence.bets, persistence.montantes, persistence.rules, clock, config.zone),
             events = EventService(SimulatedEventCatalog(clock, config.zone)),
         )
     betgamofApi(useCases, config.apiToken)

@@ -3,22 +3,14 @@ package fr.bergamof.betgamof.outbound.persistence.sqlite
 import fr.bergamof.betgamof.business.domain.Bankroll
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings
-import fr.bergamof.betgamof.business.domain.Bet
-import fr.bergamof.betgamof.business.domain.BetChange
-import fr.bergamof.betgamof.business.domain.BetStatus
-import fr.bergamof.betgamof.business.domain.BetType
 import fr.bergamof.betgamof.business.domain.DisciplineRule
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.Montante
 import fr.bergamof.betgamof.business.domain.MontanteConfig
 import fr.bergamof.betgamof.business.domain.MontanteMode
-import fr.bergamof.betgamof.business.domain.NewBet
 import fr.bergamof.betgamof.business.domain.NewRule
 import fr.bergamof.betgamof.business.domain.RuleKind
-import fr.bergamof.betgamof.business.domain.Selection
-import fr.bergamof.betgamof.business.domain.Settlement
 import fr.bergamof.betgamof.business.port.outbound.BankrollRepository
-import fr.bergamof.betgamof.business.port.outbound.BetRepository
 import fr.bergamof.betgamof.business.port.outbound.MontanteRepository
 import fr.bergamof.betgamof.business.port.outbound.RuleRepository
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -26,7 +18,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -98,117 +89,19 @@ internal class ExposedBankrollRepository(
         )
 }
 
-internal class ExposedBetRepository(
-    private val db: Database,
-) : BetRepository {
-    override fun findAll(): List<Bet> =
-        transaction(db) {
-            val selections =
-                BetSelectionsTable
-                    .selectAll()
-                    .orderBy(BetSelectionsTable.position)
-                    .groupBy({ it[BetSelectionsTable.betId].value }, ::toSelection)
-            BetsTable.selectAll().map { toBet(it, selections[it[BetsTable.id].value].orEmpty()) }
-        }
-
-    override fun find(id: Long): Bet? = findAll().firstOrNull { it.id == id }
-
-    override fun create(
-        bet: NewBet,
-        placedAt: Instant,
-    ): Long =
-        transaction(db) {
-            val betId =
-                BetsTable
-                    .insertAndGetId {
-                        it[bankrollId] = bet.bankrollId
-                        it[montanteId] = bet.montanteId
-                        it[type] = bet.type.name
-                        it[bookmaker] = bet.bookmaker.trim()
-                        it[stakeCents] = bet.stake.cents
-                        it[odds] = bet.odds
-                        it[status] = BetStatus.OPEN.name
-                        it[this.placedAt] = placedAt.toString()
-                        it[startsAt] = bet.startsAt.toString()
-                    }.value
-            bet.selections.forEachIndexed { index, selection ->
-                BetSelectionsTable.insert {
-                    it[this.betId] = betId
-                    it[position] = index
-                    it[eventId] = selection.eventId
-                    it[eventName] = selection.eventName.trim()
-                    it[sport] = selection.sport
-                    it[competition] = selection.competition
-                    it[market] = selection.market
-                    it[pick] = selection.pick.trim()
-                    it[odds] = selection.odds
-                }
-            }
-            betId
-        }
-
-    override fun update(
-        id: Long,
-        change: BetChange,
-    ): Boolean =
-        transaction(db) {
-            BetsTable.update({ BetsTable.id eq id }) {
-                it[stakeCents] = change.stake.cents
-                it[odds] = change.odds
-                it[bookmaker] = change.bookmaker.trim()
-            } > 0
-        }
-
-    override fun settle(
-        id: Long,
-        settlement: Settlement,
-        at: Instant,
-    ): Boolean =
-        transaction(db) {
-            BetsTable.update({ BetsTable.id eq id }) {
-                it[status] = settlement.status.name
-                it[cashoutCents] = settlement.cashout?.cents
-                it[settledAt] = at.toString()
-            } > 0
-        }
-
-    override fun delete(id: Long): Boolean = transaction(db) { BetsTable.deleteWhere { BetsTable.id eq id } > 0 }
-
-    private fun toSelection(row: ResultRow) =
-        Selection(
-            eventId = row[BetSelectionsTable.eventId],
-            eventName = row[BetSelectionsTable.eventName],
-            sport = row[BetSelectionsTable.sport],
-            competition = row[BetSelectionsTable.competition],
-            market = row[BetSelectionsTable.market],
-            pick = row[BetSelectionsTable.pick],
-            odds = row[BetSelectionsTable.odds],
-        )
-
-    private fun toBet(
-        row: ResultRow,
-        selections: List<Selection>,
-    ) = Bet(
-        id = row[BetsTable.id].value,
-        bankrollId = row[BetsTable.bankrollId].value,
-        montanteId = row[BetsTable.montanteId]?.value,
-        type = BetType.valueOf(row[BetsTable.type]),
-        bookmaker = row[BetsTable.bookmaker],
-        stake = Money(row[BetsTable.stakeCents]),
-        odds = row[BetsTable.odds],
-        status = BetStatus.valueOf(row[BetsTable.status]),
-        cashout = row[BetsTable.cashoutCents]?.let(::Money),
-        selections = selections,
-        placedAt = Instant.parse(row[BetsTable.placedAt]),
-        startsAt = Instant.parse(row[BetsTable.startsAt]),
-        settledAt = row[BetsTable.settledAt]?.let(Instant::parse),
-    )
-}
-
 internal class ExposedMontanteRepository(
     private val db: Database,
 ) : MontanteRepository {
     override fun findAll(): List<Montante> = transaction(db) { MontantesTable.selectAll().orderBy(MontantesTable.id).map(::toMontante) }
+
+    override fun findByBankroll(bankrollId: Long): List<Montante> =
+        transaction(db) {
+            MontantesTable
+                .selectAll()
+                .where { MontantesTable.bankrollId eq bankrollId }
+                .orderBy(MontantesTable.id)
+                .map(::toMontante)
+        }
 
     override fun find(id: Long): Montante? =
         transaction(db) {
