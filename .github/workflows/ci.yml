@@ -28,10 +28,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Lint (ktlint + detekt)
         run: ./gradlew --no-daemon ktlintCheck detekt
-      - name: Test
-        run: ./gradlew --no-daemon test
+      - name: Test (unit, component, coverage ≥ 80 %)
+        run: ./gradlew --no-daemon check koverLog
       - name: Build
-        run: ./gradlew --no-daemon :app:installDist
+        run: ./gradlew --no-daemon :application:installDist
 
   frontend:
     name: Frontend (SvelteKit)
