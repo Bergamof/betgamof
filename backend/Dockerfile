@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:24-jdk AS build
 WORKDIR /app
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties detekt.yml ./
 COPY gradle gradle
@@ -12,7 +12,7 @@ RUN ./gradlew --no-daemon --quiet :application:dependencies > /dev/null
 COPY . .
 RUN ./gradlew --no-daemon --quiet :application:installDist -x test
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S betgamof && adduser -S betgamof -G betgamof \
     && mkdir /data && chown betgamof:betgamof /data
 WORKDIR /app
