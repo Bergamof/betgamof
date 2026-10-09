@@ -14,7 +14,7 @@
 	} from '$lib/api/types';
 	import { amount, kickoff, money, odds as formatOdds, parseNumber, percent } from '$lib/format';
 	import { BET_TYPE_LABEL, BOOKMAKERS, MARKET_CATEGORY_LABEL, SPORTS } from '$lib/labels';
-	import { convertStake, stakeAmount } from '$lib/stake';
+	import { convertStake, formatStake, quickStakes, stakeAmount, STAKE_PERCENTS } from '$lib/stake';
 	import {
 		combinedOdds,
 		earliestStart,
@@ -45,10 +45,6 @@
 
 	type Source = 'event' | 'scratch';
 	type CategoryFilter = 'POPULAR' | MarketCategory;
-	const STAKE_SHORTCUTS: Record<StakeUnit, number[]> = {
-		EUR: [10, 25, 50, 100],
-		PERCENT: [1, 2, 5, 10]
-	};
 	const UNIT_SYMBOL: Record<StakeUnit, string> = { EUR: '€', PERCENT: '%' };
 	const CATEGORIES: { value: CategoryFilter; label: string }[] = [
 		{ value: 'POPULAR', label: 'Populaires' },
@@ -110,6 +106,7 @@
 	const betType = $derived(typeFor(ticket, requestedType));
 	const totalOdds = $derived(parseNumber(oddsInput));
 	const balance = $derived(bankroll?.balance ?? 0);
+	const stakeShortcuts = $derived(stakeUnit === 'PERCENT' ? STAKE_PERCENTS : quickStakes(balance));
 	const stake = $derived(
 		montante
 			? montante.capital
@@ -535,9 +532,9 @@
 				{#if !montante}
 					<ChoiceChips
 						label="Mises rapides"
-						options={STAKE_SHORTCUTS[stakeUnit].map((value) => ({
+						options={stakeShortcuts.map((value) => ({
 							value,
-							label: `${value} ${UNIT_SYMBOL[stakeUnit]}`
+							label: formatStake({ unit: stakeUnit, value })
 						}))}
 						value={parseNumber(stakeInput)}
 						onselect={(value) => (stakeInput = String(value))}

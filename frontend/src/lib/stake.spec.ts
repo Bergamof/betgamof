@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertStake, formatStake, stakeAmount } from './stake';
+import { convertStake, formatStake, quickStakes, stakeAmount } from './stake';
 
 const plain = (text: string) => text.replace(/[\u202f\u00a0]/g, ' ');
 
@@ -32,6 +32,18 @@ describe('stake', () => {
 			unit: 'PERCENT',
 			value: 0
 		});
+	});
+
+	it('scales quick stakes in euros to the balance, as round amounts', () => {
+		expect(quickStakes(1209.37)).toEqual([10, 25, 50, 100]);
+		expect(quickStakes(235)).toEqual([2.5, 5, 10, 25]);
+		expect(quickStakes(100)).toEqual([1, 2, 5, 10]);
+		expect(quickStakes(5000)).toEqual([50, 100, 250, 500]);
+	});
+
+	it('never suggests less than 1 € nor the same stake twice', () => {
+		expect(quickStakes(30)).toEqual([1, 2.5]);
+		expect(quickStakes(0)).toEqual([1]);
 	});
 
 	it('formats a stake in its unit', () => {

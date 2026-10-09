@@ -11,7 +11,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 - Frontend SvelteKit reprenant le design « Pelouse » : tableau de bord, paris (liste et ajout), montantes (création et suivi), bankrolls, statistiques, journal ; mises en page mobile et desktop.
 - Connexion par mot de passe, proxy serveur vers l'API protégée par jeton.
 - Dockerfiles multi-stage, `compose.yaml`, CI GitHub Actions.
-- Mise en pourcentage de la bankroll : à l'ajout d'un pari, la mise se saisit en euros ou en % du solde de la bankroll (bascule € / %, montant équivalent affiché, mises rapides adaptées) ; le pari est enregistré avec son montant en euros.
+- Mise en pourcentage de la bankroll : à l'ajout d'un pari, la mise se saisit en euros ou en % du solde de la bankroll (bascule € / %, montant équivalent affiché, mises rapides adaptées : 1 / 2 / 5 / 10 % en mode %, et en mode € des montants ronds proportionnels au solde, par ex. 10 / 25 / 50 / 100 € pour ~1 200 €) ; le pari est enregistré avec son montant en euros.
 - Fichiers d'autoconfiguration : `.sdkmanrc` (JDK 21 Temurin), `.nvmrc` (Node 24), `.gitattributes`, `backend/gradle.properties` (build parallèle et cache), recommandations d'extensions VS Code, Dependabot.
 
 ### Changed
