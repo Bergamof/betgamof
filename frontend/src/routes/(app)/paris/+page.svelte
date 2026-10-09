@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Bet, BetStatus } from '$lib/api/types';
 	import BetActions from '$lib/components/BetActions.svelte';
 	import BetCard from '$lib/components/BetCard.svelte';
 	import BetForm from '$lib/components/BetForm.svelte';
+	import Dialog from '$lib/components/Dialog.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
@@ -40,7 +41,17 @@
 	let days = $state('0');
 	let showFilters = $state(false);
 	let showSearch = $state(page.url.searchParams.has('q'));
-	let panelOpen = $state(true);
+	// `?ajout=1` (sidebar, dashboard) opens the "new bet" sheet; closing it drops the parameter
+	// so that the same link opens it again.
+	let adding = $state(false);
+	$effect(() => {
+		if (page.url.searchParams.has('ajout')) adding = true;
+	});
+	$effect(() => {
+		if (adding || !page.url.searchParams.has('ajout')) return;
+		const kept = [...page.url.searchParams].filter(([key]) => key !== 'ajout');
+		replaceState(resolve(`/paris?${new URLSearchParams(kept)}`), page.state);
+	});
 
 	const sports = $derived([...new Set(data.bets.map((bet) => bet.sport))].sort());
 	const bookmakers = $derived([...new Set(data.bets.map((bet) => bet.bookmaker))].sort());
@@ -114,11 +125,7 @@
 			<input placeholder="Rechercher…" bind:value={query} aria-label="Rechercher un pari" />
 		</label>
 		<button type="button" class="btn small secondary" onclick={exportCsv}>Exporter CSV</button>
-		{#if !panelOpen}
-			<button type="button" class="btn small" onclick={() => (panelOpen = true)}
-				>Nouveau pari</button
-			>
-		{/if}
+		<button type="button" class="btn small" onclick={() => (adding = true)}>Nouveau pari</button>
 	{/snippet}
 	{#snippet mobileActions()}
 		<button
@@ -253,26 +260,20 @@
 			</div>
 		</div>
 	</div>
-
-	{#if panelOpen}
-		<aside class="panel desktop-only">
-			<div class="panel-head">
-				<h2 class="card-title">Nouveau pari</h2>
-				<button type="button" class="close" onclick={() => (panelOpen = false)}>Fermer</button>
-			</div>
-			<div class="panel-body">
-				<BetForm
-					compact
-					bankrolls={data.bankrolls}
-					montantes={data.montantes}
-					events={data.events}
-					defaultBankrollId={data.bankroll?.id ?? null}
-					onsaved={() => invalidateAll()}
-				/>
-			</div>
-		</aside>
-	{/if}
 </div>
+
+<Dialog bind:open={adding} title="Nouveau pari" variant="sheet">
+	<BetForm
+		bankrolls={data.bankrolls}
+		montantes={data.montantes}
+		events={data.events}
+		defaultBankrollId={data.bankroll?.id ?? null}
+		onsaved={() => {
+			adding = false;
+			invalidateAll();
+		}}
+	/>
+</Dialog>
 
 <style>
 	.layout {
@@ -473,35 +474,5 @@
 		padding: 20px;
 		font-size: 13px;
 		color: var(--muted);
-	}
-	.panel {
-		width: 372px;
-		flex: none;
-		background: var(--surface);
-		border-left: 1px solid var(--border);
-		display: flex;
-		flex-direction: column;
-		position: sticky;
-		top: var(--header-height);
-		height: calc(100vh - var(--header-height));
-	}
-	.panel-head {
-		padding: 18px 20px;
-		border-bottom: 1px solid var(--border-soft);
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-	.close {
-		border: none;
-		background: none;
-		font-size: 13px;
-		font-weight: 600;
-		color: var(--muted);
-	}
-	.panel-body {
-		flex: 1;
-		overflow: auto;
-		padding: 18px 20px;
 	}
 </style>

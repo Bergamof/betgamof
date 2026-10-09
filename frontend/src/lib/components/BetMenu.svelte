@@ -50,7 +50,7 @@
 	const remove = () => run(() => api.delete(`/bets/${bet.id}`));
 </script>
 
-<Dialog bind:open title={bet.label}>
+<Dialog bind:open title={bet.label} variant="sheet">
 	{#if view === 'menu'}
 		<div class="menu">
 			<button type="button" onclick={() => (view = 'cashout')}>Cash-out</button>
@@ -86,11 +86,11 @@
 				<span>Cote</span>
 				<input class="big" inputmode="decimal" bind:value={odds} />
 			</label>
+			<label class="field">
+				<span>Bookmaker</span>
+				<input class="big" bind:value={bookmaker} />
+			</label>
 		</div>
-		<label class="field">
-			<span>Bookmaker</span>
-			<input bind:value={bookmaker} />
-		</label>
 		<button class="btn" type="button" onclick={save} disabled={busy}>Enregistrer</button>
 	{:else}
 		<p class="confirm">Supprimer définitivement ce pari ?</p>
@@ -101,8 +101,8 @@
 
 <style>
 	.menu {
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 		gap: 8px;
 	}
 	.menu button {
@@ -118,11 +118,9 @@
 		color: var(--loss);
 	}
 	.row {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 		gap: 10px;
-	}
-	.row .field {
-		flex: 1;
 	}
 	.small {
 		font-size: 12px;

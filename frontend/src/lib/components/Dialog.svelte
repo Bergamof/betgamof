@@ -1,11 +1,16 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	// `modal`: small window centred on screen. `sheet`: wide panel resting on the bottom edge,
+	// centred horizontally, for forms that need room (adding or editing a bet).
+	type Variant = 'modal' | 'sheet';
+
 	let {
 		open = $bindable(false),
 		title,
+		variant = 'modal',
 		children
-	}: { open?: boolean; title: string; children: Snippet } = $props();
+	}: { open?: boolean; title: string; variant?: Variant; children: Snippet } = $props();
 
 	let dialog: HTMLDialogElement | undefined = $state();
 
@@ -18,6 +23,7 @@
 
 <dialog
 	bind:this={dialog}
+	class={variant}
 	onclose={() => (open = false)}
 	onclick={(event) => {
 		if (event.target === dialog) open = false;
@@ -47,16 +53,55 @@
 	dialog::backdrop {
 		background: rgba(27, 36, 23, 0.35);
 	}
+	.sheet {
+		margin: auto auto 0;
+		width: min(1040px, calc(100vw - 48px));
+		max-width: none;
+		max-height: min(92dvh, calc(100dvh - 24px));
+		border-radius: 28px 28px 0 0;
+		box-shadow: 0 -18px 50px rgba(18, 24, 14, 0.25);
+		overflow: auto;
+		overscroll-behavior: contain;
+	}
+	.sheet[open] {
+		animation: rise 0.22s ease-out;
+	}
+	@keyframes rise {
+		from {
+			transform: translateY(40px);
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.sheet[open] {
+			animation: none;
+		}
+	}
+	@media (max-width: 600px) {
+		.sheet {
+			width: 100vw;
+		}
+	}
 	.content {
 		padding: 20px;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
 	}
+	.sheet .content {
+		padding: 0 24px calc(24px + env(safe-area-inset-bottom));
+	}
 	.head {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+	}
+	.sheet .head {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		padding: 20px 0 12px;
+		background: var(--bg);
 	}
 	.close {
 		width: 30px;

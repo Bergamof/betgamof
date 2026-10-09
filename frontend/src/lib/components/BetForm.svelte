@@ -31,8 +31,7 @@
 		events,
 		defaultBankrollId,
 		initialMontanteId = null,
-		onsaved,
-		compact = false
+		onsaved
 	}: {
 		bankrolls: Bankroll[];
 		montantes: Montante[];
@@ -40,7 +39,6 @@
 		defaultBankrollId: number | null;
 		initialMontanteId?: number | null;
 		onsaved: () => void;
-		compact?: boolean;
 	} = $props();
 
 	type Source = 'event' | 'scratch';
@@ -259,302 +257,345 @@
 	}
 </script>
 
-<div class="form" class:compact>
-	<Segmented
-		label="Origine du pari"
-		stretch
-		options={[
-			{ value: 'event', label: 'Depuis un événement' },
-			{ value: 'scratch', label: 'De zéro' }
-		]}
-		bind:value={source}
-	/>
-
-	{#if combining}
-		<div class="combining">
-			Choisis la sélection suivante{source === 'event' ? ' — change d’événement si besoin' : ''}.
-			<button type="button" class="link" onclick={() => (combining = false)}>Annuler</button>
-		</div>
-	{/if}
-
-	{#if source === 'event'}
-		{#if events.length === 0}
-			<div class="card empty">
-				Aucun événement disponible pour le moment : passe par « De zéro ».
-			</div>
-		{:else if pickingEvent || !event}
-			<div class="card picker">
-				<input class="filter" placeholder="Rechercher un match…" bind:value={eventQuery} />
-				{#each filteredEvents as candidate (candidate.id)}
-					<button
-						type="button"
-						class="event-option"
-						class:current={candidate.id === eventId}
-						onclick={() => {
-							eventId = candidate.id;
-							pickingEvent = false;
-							showAllMarkets = false;
-						}}
-					>
-						<span class="event-name">{candidate.name}</span>
-						<span class="event-meta"
-							>{candidate.sport} · {candidate.competition} · {kickoff(candidate.startsAt)}</span
-						>
-					</button>
-				{/each}
-			</div>
-		{:else}
-			<div class="event card-soft">
-				<div>
-					<div class="event-title">{event.name}</div>
-					<div class="event-meta">
-						{event.sport} · {event.competition} · {kickoff(event.startsAt)}
-					</div>
-				</div>
-				<button type="button" class="link" onclick={() => (pickingEvent = true)}>Changer</button>
-			</div>
-
-			<label class="search">
-				<span class="lens"></span>
-				<input placeholder="Filtrer les marchés · « buts », « buteur »…" bind:value={marketQuery} />
-			</label>
-
-			<div class="categories">
-				{#each CATEGORIES as option (option.value)}
-					<button
-						type="button"
-						class:selected={category === option.value}
-						onclick={() => (category = option.value)}>{option.label}</button
-					>
-				{/each}
-			</div>
-
-			{#each matchingMarkets as market (market.id)}
-				<div class="market card">
-					<div class="market-head">
-						<span class="market-name">{market.name}</span>
-						<span class="market-book">{market.outcomes[0]?.bookmaker}</span>
-					</div>
-					{#each market.outcomes as outcome (outcome.pick)}
-						<button
-							type="button"
-							class="outcome"
-							class:picked={isPicked(market, outcome.pick)}
-							onclick={() => pick(market, outcome)}
-						>
-							<span>{outcome.pick}</span>
-							<span class="num">{formatOdds(outcome.odds)}</span>
-						</button>
-					{/each}
-				</div>
-			{:else}
-				<div class="card empty">Aucun marché ne correspond.</div>
-			{/each}
-			{#if !marketQuery && category === 'POPULAR' && hiddenMarkets > 0}
-				<button type="button" class="link center" onclick={() => (showAllMarkets = true)}>
-					Voir les {event.markets.length} marchés de ce match
-				</button>
-			{/if}
-		{/if}
-	{:else}
-		<div class="card scratch">
-			<div class="row">
-				<label class="field">
-					<span>Sport</span>
-					<select bind:value={scratch.sport}>
-						{#each SPORTS as sport (sport)}<option>{sport}</option>{/each}
-					</select>
-				</label>
-				<label class="field">
-					<span>Compétition</span>
-					<input bind:value={scratch.competition} placeholder="Ligue 1" />
-				</label>
-			</div>
-			<label class="field">
-				<span>Événement</span>
-				<input bind:value={scratch.eventName} placeholder="Lens – Lyon" />
-			</label>
-			<div class="row">
-				<label class="field">
-					<span>Marché</span>
-					<input bind:value={scratch.market} placeholder="Total de buts" />
-				</label>
-				<label class="field">
-					<span>Pari</span>
-					<input bind:value={scratch.pick} placeholder="Plus de 1,5" />
-				</label>
-			</div>
-			<div class="row">
-				<label class="field">
-					<span>Cote</span>
-					<input inputmode="decimal" bind:value={scratch.odds} placeholder="1.72" />
-				</label>
-				<label class="field">
-					<span>Début</span>
-					<input type="datetime-local" bind:value={scratch.startsAt} />
-				</label>
-			</div>
-			<button type="button" class="btn secondary" onclick={addScratchSelection}>
-				Ajouter au ticket
-			</button>
-		</div>
-	{/if}
-
-	<section class="ticket">
-		<div class="ticket-head">
-			<span class="ticket-title"
-				>Ticket · {ticket.length} sélection{ticket.length > 1 ? 's' : ''}</span
-			>
-			{#if ticket.length > 0}
-				<span class="ticket-odds">Cote totale {formatOdds(combinedOdds(ticket))}</span>
-			{/if}
-		</div>
-		{#each ticket as item, index (index)}
-			<div class="selection">
-				<div class="selection-text">
-					<div class="selection-name">{item.selection.eventName} · {item.selection.pick}</div>
-					<div class="selection-meta">
-						{item.selection.market || item.selection.sport} · cote {formatOdds(item.selection.odds)}
-					</div>
-				</div>
-				<button
-					type="button"
-					class="remove"
-					aria-label="Retirer la sélection"
-					onclick={() => removeFromTicket(index)}>×</button
-				>
-			</div>
-		{:else}
-			<div class="selection placeholder">Touche une cote pour l'ajouter au ticket.</div>
-		{/each}
-		{#if ticket.length > 0}
-			<button type="button" class="add-selection" onclick={() => (combining = true)}>
-				+ Ajouter une sélection (combiné)
-			</button>
-		{/if}
-
-		<div class="types">
-			{#each ['SIMPLE', 'COMBINE', 'SYSTEME'] as const as type (type)}
-				<button type="button" class:selected={betType === type} onclick={() => chooseType(type)}
-					>{BET_TYPE_LABEL[type]}</button
-				>
-			{/each}
-		</div>
-
-		<div class="figures">
-			<label class="figure">
-				<span>Mise</span>
-				<input
-					class="num"
-					inputmode="decimal"
-					value={montante ? String(montante.capital) : stakeInput}
-					oninput={(e) => (stakeInput = e.currentTarget.value)}
-					disabled={montante !== null}
-					aria-label="Mise en euros"
-				/>
-			</label>
-			<label class="figure">
-				<span>Cote</span>
-				<input
-					class="num"
-					inputmode="decimal"
-					bind:value={oddsInput}
-					oninput={() => (oddsEdited = true)}
-					aria-label="Cote totale"
-				/>
-			</label>
-			<div class="figure">
-				<span>Gain</span>
-				<output class="num positive">{amount(potentialGain)}</output>
-			</div>
-		</div>
-
-		{#if !montante}
-			<ChoiceChips
-				label="Mises rapides"
-				options={STAKE_SHORTCUTS.map((value) => ({ value, label: `${value} €` }))}
-				value={STAKE_SHORTCUTS.includes(stake) ? stake : null}
-				onselect={(value) => (stakeInput = String(value))}
+<!-- Two columns (market picking | ticket) once the container is wide enough, e.g. in a sheet. -->
+<div class="bet-form">
+	<div class="form">
+		<div class="pick">
+			<Segmented
+				label="Origine du pari"
+				stretch
+				options={[
+					{ value: 'event', label: 'Depuis un événement' },
+					{ value: 'scratch', label: 'De zéro' }
+				]}
+				bind:value={source}
 			/>
-		{/if}
 
-		<div class="row">
-			<label class="field">
-				<span>Bookmaker</span>
-				<input list="bookmakers" bind:value={bookmaker} />
-				<datalist id="bookmakers">
-					{#each BOOKMAKERS as name (name)}<option value={name}></option>{/each}
-				</datalist>
-			</label>
-			<label class="field">
-				<span>Bankroll</span>
-				<select bind:value={bankrollId} disabled={montante !== null}>
-					{#each bankrolls as option (option.id)}
-						<option value={option.id}>{option.name} · {money(option.balance)}</option>
-					{/each}
-				</select>
-			</label>
-		</div>
+			{#if combining}
+				<div class="combining">
+					Choisis la sélection suivante{source === 'event'
+						? ' — change d’événement si besoin'
+						: ''}.
+					<button type="button" class="link" onclick={() => (combining = false)}>Annuler</button>
+				</div>
+			{/if}
 
-		{#if !montante}
-			<div class="kelly">
-				<span class="dot"></span>
-				<span class="kelly-text">
-					{#if kelly && kelly.stake > 0}
-						Kelly conseille {amount(kelly.stake)} ({percent(kelly.bankrollShare)} de la bankroll)
-					{:else if kelly}
-						Kelly : pas d'avantage estimé à cette cote
-					{:else}
-						Kelly : saisis une cote
-					{/if}
-				</span>
-				{#if kelly && kelly.stake > 0}
-					<button type="button" class="follow" onclick={() => (stakeInput = String(kelly?.stake))}>
-						Suivre · {amount(kelly.stake)}
-					</button>
-				{/if}
-			</div>
-		{/if}
+			{#if source === 'event'}
+				{#if events.length === 0}
+					<div class="card empty">
+						Aucun événement disponible pour le moment : passe par « De zéro ».
+					</div>
+				{:else if pickingEvent || !event}
+					<div class="card picker">
+						<input class="filter" placeholder="Rechercher un match…" bind:value={eventQuery} />
+						{#each filteredEvents as candidate (candidate.id)}
+							<button
+								type="button"
+								class="event-option"
+								class:current={candidate.id === eventId}
+								onclick={() => {
+									eventId = candidate.id;
+									pickingEvent = false;
+									showAllMarkets = false;
+								}}
+							>
+								<span class="event-name">{candidate.name}</span>
+								<span class="event-meta"
+									>{candidate.sport} · {candidate.competition} · {kickoff(candidate.startsAt)}</span
+								>
+							</button>
+						{/each}
+					</div>
+				{:else}
+					<div class="event card-soft">
+						<div>
+							<div class="event-title">{event.name}</div>
+							<div class="event-meta">
+								{event.sport} · {event.competition} · {kickoff(event.startsAt)}
+							</div>
+						</div>
+						<button type="button" class="link" onclick={() => (pickingEvent = true)}>Changer</button
+						>
+					</div>
 
-		<div class="attach">
-			<Toggle
-				label="Rattacher ce pari à une montante"
-				bind:checked={attach}
-				disabled={openMontantes.length === 0}
-			/>
-			<div class="attach-text">
-				<span>Rattacher ce pari à une montante</span>
-				{#if openMontantes.length === 0}
-					<span class="hint">Aucune montante n'attend de palier.</span>
-				{:else if attach}
-					<select
-						value={montante?.id}
-						onchange={(e) => (montanteId = Number(e.currentTarget.value))}
-						aria-label="Montante"
-					>
-						{#each openMontantes as option (option.id)}
-							<option value={option.id}
-								>{option.name} · palier {option.currentPalier} · {amount(option.capital)}</option
+					<label class="search">
+						<span class="lens"></span>
+						<input
+							placeholder="Filtrer les marchés · « buts », « buteur »…"
+							bind:value={marketQuery}
+						/>
+					</label>
+
+					<div class="categories">
+						{#each CATEGORIES as option (option.value)}
+							<button
+								type="button"
+								class:selected={category === option.value}
+								onclick={() => (category = option.value)}>{option.label}</button
 							>
 						{/each}
-					</select>
+					</div>
+
+					{#each matchingMarkets as market (market.id)}
+						<div class="market card">
+							<div class="market-head">
+								<span class="market-name">{market.name}</span>
+								<span class="market-book">{market.outcomes[0]?.bookmaker}</span>
+							</div>
+							{#each market.outcomes as outcome (outcome.pick)}
+								<button
+									type="button"
+									class="outcome"
+									class:picked={isPicked(market, outcome.pick)}
+									onclick={() => pick(market, outcome)}
+								>
+									<span>{outcome.pick}</span>
+									<span class="num">{formatOdds(outcome.odds)}</span>
+								</button>
+							{/each}
+						</div>
+					{:else}
+						<div class="card empty">Aucun marché ne correspond.</div>
+					{/each}
+					{#if !marketQuery && category === 'POPULAR' && hiddenMarkets > 0}
+						<button type="button" class="link center" onclick={() => (showAllMarkets = true)}>
+							Voir les {event.markets.length} marchés de ce match
+						</button>
+					{/if}
 				{/if}
-			</div>
+			{:else}
+				<div class="card scratch">
+					<div class="row">
+						<label class="field">
+							<span>Sport</span>
+							<select bind:value={scratch.sport}>
+								{#each SPORTS as sport (sport)}<option>{sport}</option>{/each}
+							</select>
+						</label>
+						<label class="field">
+							<span>Compétition</span>
+							<input bind:value={scratch.competition} placeholder="Ligue 1" />
+						</label>
+					</div>
+					<label class="field">
+						<span>Événement</span>
+						<input bind:value={scratch.eventName} placeholder="Lens – Lyon" />
+					</label>
+					<div class="row">
+						<label class="field">
+							<span>Marché</span>
+							<input bind:value={scratch.market} placeholder="Total de buts" />
+						</label>
+						<label class="field">
+							<span>Pari</span>
+							<input bind:value={scratch.pick} placeholder="Plus de 1,5" />
+						</label>
+					</div>
+					<div class="row">
+						<label class="field">
+							<span>Cote</span>
+							<input inputmode="decimal" bind:value={scratch.odds} placeholder="1.72" />
+						</label>
+						<label class="field">
+							<span>Début</span>
+							<input type="datetime-local" bind:value={scratch.startsAt} />
+						</label>
+					</div>
+					<button type="button" class="btn secondary" onclick={addScratchSelection}>
+						Ajouter au ticket
+					</button>
+				</div>
+			{/if}
 		</div>
-	</section>
 
-	{#if error}<div class="form-error">{error}</div>{/if}
+		<div class="checkout">
+			<section class="ticket">
+				<div class="ticket-head">
+					<span class="ticket-title"
+						>Ticket · {ticket.length} sélection{ticket.length > 1 ? 's' : ''}</span
+					>
+					{#if ticket.length > 0}
+						<span class="ticket-odds">Cote totale {formatOdds(combinedOdds(ticket))}</span>
+					{/if}
+				</div>
+				{#each ticket as item, index (index)}
+					<div class="selection">
+						<div class="selection-text">
+							<div class="selection-name">{item.selection.eventName} · {item.selection.pick}</div>
+							<div class="selection-meta">
+								{item.selection.market || item.selection.sport} · cote {formatOdds(
+									item.selection.odds
+								)}
+							</div>
+						</div>
+						<button
+							type="button"
+							class="remove"
+							aria-label="Retirer la sélection"
+							onclick={() => removeFromTicket(index)}>×</button
+						>
+					</div>
+				{:else}
+					<div class="selection placeholder">Touche une cote pour l'ajouter au ticket.</div>
+				{/each}
+				{#if ticket.length > 0}
+					<button type="button" class="add-selection" onclick={() => (combining = true)}>
+						+ Ajouter une sélection (combiné)
+					</button>
+				{/if}
 
-	<button type="button" class="btn submit" onclick={save} disabled={saving || ticket.length === 0}>
-		{saving ? 'Enregistrement…' : 'Enregistrer le pari'}
-	</button>
+				<div class="types">
+					{#each ['SIMPLE', 'COMBINE', 'SYSTEME'] as const as type (type)}
+						<button type="button" class:selected={betType === type} onclick={() => chooseType(type)}
+							>{BET_TYPE_LABEL[type]}</button
+						>
+					{/each}
+				</div>
+
+				<div class="figures">
+					<label class="figure">
+						<span>Mise</span>
+						<input
+							class="num"
+							inputmode="decimal"
+							value={montante ? String(montante.capital) : stakeInput}
+							oninput={(e) => (stakeInput = e.currentTarget.value)}
+							disabled={montante !== null}
+							aria-label="Mise en euros"
+						/>
+					</label>
+					<label class="figure">
+						<span>Cote</span>
+						<input
+							class="num"
+							inputmode="decimal"
+							bind:value={oddsInput}
+							oninput={() => (oddsEdited = true)}
+							aria-label="Cote totale"
+						/>
+					</label>
+					<div class="figure">
+						<span>Gain</span>
+						<output class="num positive">{amount(potentialGain)}</output>
+					</div>
+				</div>
+
+				{#if !montante}
+					<ChoiceChips
+						label="Mises rapides"
+						options={STAKE_SHORTCUTS.map((value) => ({ value, label: `${value} €` }))}
+						value={STAKE_SHORTCUTS.includes(stake) ? stake : null}
+						onselect={(value) => (stakeInput = String(value))}
+					/>
+				{/if}
+
+				<div class="row">
+					<label class="field">
+						<span>Bookmaker</span>
+						<input list="bookmakers" bind:value={bookmaker} />
+						<datalist id="bookmakers">
+							{#each BOOKMAKERS as name (name)}<option value={name}></option>{/each}
+						</datalist>
+					</label>
+					<label class="field">
+						<span>Bankroll</span>
+						<select bind:value={bankrollId} disabled={montante !== null}>
+							{#each bankrolls as option (option.id)}
+								<option value={option.id}>{option.name} · {money(option.balance)}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
+
+				{#if !montante}
+					<div class="kelly">
+						<span class="dot"></span>
+						<span class="kelly-text">
+							{#if kelly && kelly.stake > 0}
+								Kelly conseille {amount(kelly.stake)} ({percent(kelly.bankrollShare)} de la bankroll)
+							{:else if kelly}
+								Kelly : pas d'avantage estimé à cette cote
+							{:else}
+								Kelly : saisis une cote
+							{/if}
+						</span>
+						{#if kelly && kelly.stake > 0}
+							<button
+								type="button"
+								class="follow"
+								onclick={() => (stakeInput = String(kelly?.stake))}
+							>
+								Suivre · {amount(kelly.stake)}
+							</button>
+						{/if}
+					</div>
+				{/if}
+
+				<div class="attach">
+					<Toggle
+						label="Rattacher ce pari à une montante"
+						bind:checked={attach}
+						disabled={openMontantes.length === 0}
+					/>
+					<div class="attach-text">
+						<span>Rattacher ce pari à une montante</span>
+						{#if openMontantes.length === 0}
+							<span class="hint">Aucune montante n'attend de palier.</span>
+						{:else if attach}
+							<select
+								value={montante?.id}
+								onchange={(e) => (montanteId = Number(e.currentTarget.value))}
+								aria-label="Montante"
+							>
+								{#each openMontantes as option (option.id)}
+									<option value={option.id}
+										>{option.name} · palier {option.currentPalier} · {amount(
+											option.capital
+										)}</option
+									>
+								{/each}
+							</select>
+						{/if}
+					</div>
+				</div>
+			</section>
+
+			{#if error}<div class="form-error">{error}</div>{/if}
+
+			<button
+				type="button"
+				class="btn submit"
+				onclick={save}
+				disabled={saving || ticket.length === 0}
+			>
+				{saving ? 'Enregistrement…' : 'Enregistrer le pari'}
+			</button>
+		</div>
+	</div>
 </div>
 
 <style>
-	.form {
+	.bet-form {
+		container-type: inline-size;
+	}
+	.form,
+	.pick,
+	.checkout {
 		display: flex;
 		flex-direction: column;
 		gap: 13px;
+	}
+	@container (min-width: 760px) {
+		.form {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) 380px;
+			align-items: start;
+			gap: 20px;
+		}
+		.checkout {
+			position: sticky;
+			top: 64px;
+		}
 	}
 	.combining {
 		font-size: 12px;
@@ -911,12 +952,5 @@
 		height: 52px;
 		border-radius: 16px;
 		font-size: 15px;
-	}
-	.compact .ticket {
-		border-width: 1px;
-		border-color: var(--border);
-		background: var(--bg);
-		border-radius: 16px;
-		padding: 15px;
 	}
 </style>

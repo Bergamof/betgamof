@@ -26,7 +26,7 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
   - `hooks.server.ts` — garde d'authentification (cookie de session HMAC du mot de passe).
   - `lib/server/` — appels à l'API côté serveur (`getJson`), auth. `routes/api/[...path]` — proxy navigateur → API (le jeton ne sort jamais du serveur).
   - `lib/api/` — types TS miroirs de `Views.kt`, client navigateur (`api`, `mutate` = appel + `invalidateAll`).
-  - `lib/components/` — UI partagée ; `BetForm.svelte` = formulaire d'ajout (page mobile et panneau desktop).
+  - `lib/components/` — UI partagée ; `Dialog.svelte` (variantes `modal` centrée / `sheet` posée en bas, large) ; `BetForm.svelte` = formulaire d'ajout (page `/paris/nouveau` et sheet de `/paris` ouverte par `?ajout=1`, deux colonnes via container query si ≥ 760 px). Modification d'un pari : `BetMenu.svelte` (sheet).
   - `routes/(app)/` — pages : `/`, `/paris`, `/paris/nouveau`, `/montantes`, `/montantes/nouvelle`, `/montantes/[id]`, `/bankrolls`, `/statistiques`, `/journal`.
 - Flux : page `load` (serveur) → `getJson` → API ; mutations navigateur → `/api/*` (proxy) → API → `invalidateAll`.
 
