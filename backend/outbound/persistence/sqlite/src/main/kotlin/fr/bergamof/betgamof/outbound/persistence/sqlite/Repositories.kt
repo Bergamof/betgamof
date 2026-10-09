@@ -3,6 +3,7 @@ package fr.bergamof.betgamof.outbound.persistence.sqlite
 import fr.bergamof.betgamof.business.domain.Bankroll
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.DisciplineRule
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.Montante
@@ -70,7 +71,9 @@ internal class ExposedBankrollRepository(
         row[initialBalanceCents] = settings.initialBalance.cents
         row[stopLossCents] = settings.stopLoss?.cents
         row[kellyFraction] = settings.kellyFraction
-        row[fixedStakeCents] = settings.fixedStake?.cents
+        val defaultStake = settings.defaultStake
+        row[defaultStakeCents] = (defaultStake as? DefaultStake.Amount)?.amount?.cents
+        row[defaultStakePercent] = (defaultStake as? DefaultStake.Percent)?.percent
     }
 
     private fun toBankroll(row: ResultRow) =
@@ -83,10 +86,14 @@ internal class ExposedBankrollRepository(
                     initialBalance = Money(row[BankrollsTable.initialBalanceCents]),
                     stopLoss = row[BankrollsTable.stopLossCents]?.let(::Money),
                     kellyFraction = row[BankrollsTable.kellyFraction],
-                    fixedStake = row[BankrollsTable.fixedStakeCents]?.let(::Money),
+                    defaultStake = toDefaultStake(row),
                 ),
             createdAt = Instant.parse(row[BankrollsTable.createdAt]),
         )
+
+    private fun toDefaultStake(row: ResultRow): DefaultStake? =
+        row[BankrollsTable.defaultStakeCents]?.let { DefaultStake.Amount(Money(it)) }
+            ?: row[BankrollsTable.defaultStakePercent]?.let(DefaultStake::Percent)
 }
 
 internal class ExposedMontanteRepository(

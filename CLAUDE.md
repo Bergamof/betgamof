@@ -31,8 +31,8 @@ Suivi personnel de paris sportifs (paris, montantes, bankrolls, stats, disciplin
 - Flux : page `load` (serveur) → `getJson` → API ; mutations navigateur → `/api/*` (proxy) → API → `invalidateAll`.
 
 ## Modèle de domaine
-- Bankroll — solde initial + stop-loss + fraction de Kelly + mise fixe ; **solde jamais stocké**, calculé par `BankrollLedger`.
-- Bet — sélections (1 = simple, ≥2 = combiné/système), cote, mise, statut OPEN/WON/LOST/VOID/CASHOUT ; peut appartenir à une montante (un pari = un palier).
+- Bankroll — solde initial + stop-loss + fraction de Kelly + mise par défaut (`DefaultStake` : `Amount` en € ou `Percent` du solde) ; **solde jamais stocké**, calculé par `BankrollLedger`.
+- Bet — sélections (1 = simple, ≥2 = combiné/système), cote, mise (toujours en €, un % saisi est converti côté front par `lib/stake.ts`), statut OPEN/WON/LOST/VOID/CASHOUT ; peut appartenir à une montante (un pari = un palier).
 - Lecture des paris — jamais tout l'historique « par défaut » : chaque cas d'usage charge ce qu'il lui faut via `BetCriteria` (période `Period`, bankroll, montantes, statut, page…). Liste des paris paginable (`limit`/`offset`), soldes via `directTotalsByBankroll()` (lignes parcourues sans être gardées). Seules les statistiques d'une période chargent ses paris.
 - Montante — config seule en base (+ `closed_at` manuel) ; état (capital, sécurisé, engagé, relances, statut) **dérivé** par `MontanteEngine` en rejouant ses paris par `placed_at`.
 - DisciplineRule — MAX_STAKE_PCT, PAUSE_AFTER_LOSSES, SINGLE_ACTIVE_MONTANTE ; évaluée sur 30 jours.

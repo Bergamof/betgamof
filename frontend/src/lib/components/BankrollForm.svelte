@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { api, mutate } from '$lib/api/client';
-	import type { Bankroll, BankrollColor, BankrollRequest } from '$lib/api/types';
+	import type { Bankroll, BankrollColor, BankrollRequest, StakeUnit } from '$lib/api/types';
 	import { parseNumber } from '$lib/format';
 	import { BANKROLL_COLORS, BANKROLL_COLOR_LABEL } from '$lib/labels';
 	import ChoiceChips from './ChoiceChips.svelte';
+	import Segmented from './Segmented.svelte';
 
 	let { bankroll = null, ondone }: { bankroll?: Bankroll | null; ondone: () => void } = $props();
 
@@ -16,11 +17,13 @@
 	let initialBalance = $state(initial ? String(initial.initialBalance) : '');
 	let stopLoss = $state(initial?.stopLoss != null ? String(initial.stopLoss) : '');
 	let kellyFraction = $state(initial?.kellyFraction ?? 0.25);
-	let fixedStake = $state(initial?.fixedStake != null ? String(initial.fixedStake) : '');
+	let defaultStake = $state(initial?.defaultStake ? String(initial.defaultStake.value) : '');
+	let defaultStakeUnit = $state<StakeUnit>(initial?.defaultStake?.unit ?? 'EUR');
 	let error = $state<string | null>(null);
 	let busy = $state(false);
 
 	const optional = (value: string) => (value.trim() === '' ? null : parseNumber(value));
+	const defaultStakeValue = $derived(optional(defaultStake));
 
 	async function save() {
 		const body: BankrollRequest = {
@@ -29,7 +32,8 @@
 			initialBalance: parseNumber(initialBalance),
 			stopLoss: optional(stopLoss),
 			kellyFraction,
-			fixedStake: optional(fixedStake)
+			defaultStake:
+				defaultStakeValue === null ? null : { unit: defaultStakeUnit, value: defaultStakeValue }
 		};
 		busy = true;
 		error = await mutate(() =>
@@ -84,10 +88,28 @@
 		onselect={(value) => (kellyFraction = value)}
 	/>
 </div>
-<label class="field">
-	<span>Mise fixe par défaut (€, optionnel)</span>
-	<input inputmode="decimal" bind:value={fixedStake} placeholder="5" />
-</label>
+<div class="group">
+	<span class="eyebrow">Mise par défaut (optionnel)</span>
+	<div class="stake">
+		<label class="field">
+			<span>{defaultStakeUnit === 'PERCENT' ? 'En % du solde' : 'En euros'}</span>
+			<input
+				inputmode="decimal"
+				bind:value={defaultStake}
+				placeholder={defaultStakeUnit === 'PERCENT' ? '2' : '5'}
+			/>
+		</label>
+		<Segmented
+			label="Unité de la mise par défaut"
+			size="sm"
+			options={[
+				{ value: 'EUR', label: '€' },
+				{ value: 'PERCENT', label: '%' }
+			]}
+			bind:value={defaultStakeUnit}
+		/>
+	</div>
+</div>
 {#if error}<div class="form-error">{error}</div>{/if}
 <div class="actions">
 	{#if initial}
@@ -125,6 +147,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+	.stake {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+	}
+	.stake .field {
+		flex: 1;
+		min-width: 0;
 	}
 	.actions {
 		display: flex;

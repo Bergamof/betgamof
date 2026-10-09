@@ -4,6 +4,7 @@ import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.MontanteConfig
 import fr.bergamof.betgamof.business.domain.MontanteEngine
@@ -50,7 +51,7 @@ class DemoSeeder(
             )
         val funBankroll =
             bankrolls.create(
-                BankrollSettings("Fun / longs shots", BankrollColor.CIEL, Money.euros(250), null, 0.1, Money.euros(5)),
+                BankrollSettings("Fun / longs shots", BankrollColor.CIEL, Money.euros(250), null, 0.1, DefaultStake.Percent(2.0)),
                 start,
             )
         seedHistory(main, funBankroll)

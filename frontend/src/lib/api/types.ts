@@ -8,6 +8,13 @@ export type MontanteStatus = 'ACTIVE' | 'SUCCEEDED' | 'BROKEN' | 'CLOSED';
 export type RuleKind = 'MAX_STAKE_PCT' | 'PAUSE_AFTER_LOSSES' | 'SINGLE_ACTIVE_MONTANTE';
 export type StatsPeriod = 'DAYS_30' | 'MONTHS_3' | 'ALL';
 export type MarketCategory = 'RESULTAT' | 'BUTS' | 'HANDICAP' | 'BUTEURS' | 'MI_TEMPS';
+export type StakeUnit = 'EUR' | 'PERCENT';
+
+/** A stake in euros, or in percent of the bankroll balance. */
+export interface Stake {
+	unit: StakeUnit;
+	value: number;
+}
 
 export interface Bankroll {
 	id: number;
@@ -18,7 +25,7 @@ export interface Bankroll {
 	stopLoss: number | null;
 	stopLossMargin: number | null;
 	kellyFraction: number;
-	fixedStake: number | null;
+	defaultStake: Stake | null;
 	outsideMontantes: number;
 	openStake: number;
 	staked: number;
@@ -236,5 +243,5 @@ export interface BankrollRequest {
 	initialBalance: number;
 	stopLoss: number | null;
 	kellyFraction: number;
-	fixedStake: number | null;
+	defaultStake: Stake | null;
 }

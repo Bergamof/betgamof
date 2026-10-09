@@ -25,8 +25,8 @@ class ValidationTest {
                     { BankrollSettings("B", BankrollColor.GAZON, Money.euros(-1), null, 0.25, null) },
                 "La fraction de Kelly doit être comprise entre 0 et 1" to
                     { BankrollSettings("B", BankrollColor.GAZON, Money.euros(1), null, 1.5, null) },
-                "La mise fixe doit être positive" to
-                    { BankrollSettings("B", BankrollColor.GAZON, Money.euros(1), null, 0.25, Money.ZERO) },
+                "La mise par défaut doit être positive" to { DefaultStake.Amount(Money.ZERO) },
+                "Le pourcentage de mise doit être compris entre 0 et 100" to { DefaultStake.Percent(0.0) },
             ),
         )
 

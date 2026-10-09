@@ -3,6 +3,7 @@ package fr.bergamof.betgamof.business.model
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.MontanteMode
 import fr.bergamof.betgamof.business.domain.MontanteStatus
@@ -20,7 +21,7 @@ data class BankrollView(
     val stopLoss: Money?,
     val stopLossMargin: Money?,
     val kellyFraction: Double,
-    val fixedStake: Money?,
+    val defaultStake: DefaultStake?,
     val outsideMontantes: Money,
     val openStake: Money,
     val staked: Money,

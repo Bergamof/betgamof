@@ -9,6 +9,7 @@
 	import RulesCard from '$lib/components/RulesCard.svelte';
 	import { amount, money, percent, plural } from '$lib/format';
 	import { BANKROLL_COLORS } from '$lib/labels';
+	import { formatStake } from '$lib/stake';
 
 	let { data } = $props();
 
@@ -40,7 +41,7 @@
 
 	function description(bankroll: Bankroll): string {
 		const parts = [...bankroll.bookmakers.slice(0, 2), plural(bankroll.betCount, 'pari')];
-		if (bankroll.fixedStake) parts.push(`mise fixe ${amount(bankroll.fixedStake)}`);
+		if (bankroll.defaultStake) parts.push(`mise par défaut ${formatStake(bankroll.defaultStake)}`);
 		return parts.join(' · ');
 	}
 </script>

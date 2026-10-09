@@ -5,6 +5,7 @@ import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.domain.BetChange
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.DisciplineRule
 import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.domain.MontanteConfig
@@ -30,7 +31,8 @@ class SqlitePersistenceTest {
     lateinit var dir: Path
 
     private val now = Instant.parse("2026-09-11T16:00:00Z")
-    private val settings = BankrollSettings("Principale", BankrollColor.CIEL, Money.euros(1088.5), Money.euros(900), 0.25, Money.euros(5))
+    private val settings =
+        BankrollSettings("Principale", BankrollColor.CIEL, Money.euros(1088.5), Money.euros(900), 0.25, DefaultStake.Amount(Money.euros(5)))
     private val selections =
         listOf(
             Selection("a", "A – B", "Football", "Ligue 1", "Résultat final", "A", 1.5),
@@ -59,7 +61,7 @@ class SqlitePersistenceTest {
 
     @Test
     fun `a bankroll can be updated then deleted`() {
-        val renamed = settings.copy(name = "Fun", stopLoss = null)
+        val renamed = settings.copy(name = "Fun", stopLoss = null, defaultStake = DefaultStake.Percent(2.5))
 
         assertTrue(persistence.bankrolls.update(bankrollId, renamed))
         assertEquals(listOf(renamed), persistence.bankrolls.findAll().map { it.settings })

@@ -11,13 +11,12 @@ data class BankrollSettings(
     val initialBalance: Money,
     val stopLoss: Money?,
     val kellyFraction: Double,
-    val fixedStake: Money?,
+    val defaultStake: DefaultStake?,
 ) {
     init {
         require(name.isNotBlank()) { "Le nom de la bankroll est obligatoire" }
         require(initialBalance.cents >= 0) { "Le solde initial doit être positif" }
         require(kellyFraction in 0.0..1.0) { "La fraction de Kelly doit être comprise entre 0 et 1" }
-        require(fixedStake == null || fixedStake.isPositive) { "La mise fixe doit être positive" }
     }
 }
 

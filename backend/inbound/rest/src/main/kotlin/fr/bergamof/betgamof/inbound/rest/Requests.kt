@@ -25,7 +25,7 @@ data class BankrollRequest(
     val initialBalance: Double,
     val stopLoss: Double? = null,
     val kellyFraction: Double = DEFAULT_KELLY_FRACTION,
-    val fixedStake: Double? = null,
+    val defaultStake: StakeJson? = null,
 ) {
     fun toSettings() =
         BankrollSettings(
@@ -36,7 +36,7 @@ data class BankrollRequest(
                 Money.euros(it)
             },
             kellyFraction,
-            fixedStake?.let { Money.euros(it) },
+            defaultStake?.toDefaultStake(),
         )
 }
 

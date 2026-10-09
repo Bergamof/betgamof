@@ -41,7 +41,7 @@ internal fun Bankroll.toView(
     stopLoss = settings.stopLoss,
     stopLossMargin = settings.stopLoss?.let { position.balance - it },
     kellyFraction = settings.kellyFraction,
-    fixedStake = settings.fixedStake,
+    defaultStake = settings.defaultStake,
     outsideMontantes = position.outsideMontantes,
     openStake = position.openStake,
     staked = position.staked,

@@ -11,10 +11,12 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 - Frontend SvelteKit reprenant le design « Pelouse » : tableau de bord, paris (liste et ajout), montantes (création et suivi), bankrolls, statistiques, journal ; mises en page mobile et desktop.
 - Connexion par mot de passe, proxy serveur vers l'API protégée par jeton.
 - Dockerfiles multi-stage, `compose.yaml`, CI GitHub Actions.
+- Mise en pourcentage de la bankroll : à l'ajout d'un pari, la mise se saisit en euros ou en % du solde de la bankroll (bascule € / %, montant équivalent affiché, mises rapides adaptées) ; le pari est enregistré avec son montant en euros.
 - Fichiers d'autoconfiguration : `.sdkmanrc` (JDK 21 Temurin), `.nvmrc` (Node 24), `.gitattributes`, `backend/gradle.properties` (build parallèle et cache), recommandations d'extensions VS Code, Dependabot.
 
 ### Changed
 
+- Bankroll : la « mise fixe » devient une mise par défaut en euros ou en pourcentage du solde ; elle préremplit la mise du formulaire de pari. API : `fixedStake` (nombre) remplacé par `defaultStake` (`{ "unit": "EUR" | "PERCENT", "value": … }` ou `null`) ; migration SQLite `V2`.
 - Ajout et modification d'un pari dans un grand panneau posé sur le bas de l'écran et centré (variante `sheet` de `Dialog`) : le formulaire d'ajout passe sur deux colonnes (marchés | ticket) quand la place le permet ; il remplace le panneau latéral de la page Paris et s'ouvre via `?ajout=1`.
 - Formulaire d'ajout d'un pari : aucun événement n'est présélectionné, il s'ouvre sur la liste des événements.
 - Backend : chaque requête ne lit plus que les paris dont elle a besoin (critères `BetCriteria` traduits en SQL, période, pagination) au lieu de tout l'historique ; soldes calculés à partir de totaux agrégés. `GET /api/bets` accepte `limit` et `offset` (facultatifs, sans eux tout est renvoyé comme avant).

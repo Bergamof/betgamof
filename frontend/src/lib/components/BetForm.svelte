@@ -9,10 +9,12 @@
 		Market,
 		MarketCategory,
 		Montante,
-		SportEvent
+		SportEvent,
+		StakeUnit
 	} from '$lib/api/types';
 	import { amount, kickoff, money, odds as formatOdds, parseNumber, percent } from '$lib/format';
 	import { BET_TYPE_LABEL, BOOKMAKERS, MARKET_CATEGORY_LABEL, SPORTS } from '$lib/labels';
+	import { convertStake, stakeAmount } from '$lib/stake';
 	import {
 		combinedOdds,
 		earliestStart,
@@ -43,7 +45,11 @@
 
 	type Source = 'event' | 'scratch';
 	type CategoryFilter = 'POPULAR' | MarketCategory;
-	const STAKE_SHORTCUTS = [10, 25, 50, 100];
+	const STAKE_SHORTCUTS: Record<StakeUnit, number[]> = {
+		EUR: [10, 25, 50, 100],
+		PERCENT: [1, 2, 5, 10]
+	};
+	const UNIT_SYMBOL: Record<StakeUnit, string> = { EUR: '€', PERCENT: '%' };
 	const CATEGORIES: { value: CategoryFilter; label: string }[] = [
 		{ value: 'POPULAR', label: 'Populaires' },
 		...(Object.keys(MARKET_CATEGORY_LABEL) as MarketCategory[]).map((value) => ({
@@ -76,6 +82,8 @@
 	let oddsInput = $state('');
 	let oddsEdited = $state(false);
 	let stakeInput = $state('');
+	// A percentage only helps typing the stake: the bet is saved with its amount in euros.
+	let stakeUnit = $state<StakeUnit>('EUR');
 	let bookmaker = $state('Winamax');
 	let bankrollId = $state(initial.bankrollId);
 	let attach = $state(initial.montanteId !== null);
@@ -101,7 +109,12 @@
 	);
 	const betType = $derived(typeFor(ticket, requestedType));
 	const totalOdds = $derived(parseNumber(oddsInput));
-	const stake = $derived(montante ? montante.capital : parseNumber(stakeInput));
+	const balance = $derived(bankroll?.balance ?? 0);
+	const stake = $derived(
+		montante
+			? montante.capital
+			: stakeAmount({ unit: stakeUnit, value: parseNumber(stakeInput) }, balance)
+	);
 	const potentialGain = $derived(stake * totalOdds);
 	const filteredEvents = $derived(
 		events.filter((e) =>
@@ -132,7 +145,11 @@
 		if (montante) bankrollId = montante.bankrollId;
 	});
 	$effect(() => {
-		if (!stakeInput && bankroll?.fixedStake) stakeInput = String(bankroll.fixedStake);
+		const defaultStake = bankroll?.defaultStake;
+		if (!stakeInput && defaultStake) {
+			stakeUnit = defaultStake.unit;
+			stakeInput = String(defaultStake.value);
+		}
 	});
 
 	// Kelly advice for the current odds, debounced while typing.
@@ -146,6 +163,21 @@
 		}, 250);
 		return () => clearTimeout(timer);
 	});
+
+	/** Switching unit keeps the same stake: 5 € becomes 5 % of a 100 € bankroll. */
+	function chooseStakeUnit(unit: StakeUnit) {
+		if (stakeInput.trim()) {
+			stakeInput = String(
+				convertStake({ unit: stakeUnit, value: parseNumber(stakeInput) }, unit, balance).value
+			);
+		}
+		stakeUnit = unit;
+	}
+
+	function setStakeInEuros(value: number) {
+		stakeUnit = 'EUR';
+		stakeInput = String(value);
+	}
 
 	function pick(market: Market, outcome: Market['outcomes'][number]) {
 		if (!event) return;
@@ -453,17 +485,37 @@
 				</div>
 
 				<div class="figures">
-					<label class="figure">
-						<span>Mise</span>
+					<div class="figure">
+						<span class="figure-head">
+							Mise
+							{#if !montante}
+								<span class="units" role="radiogroup" aria-label="Unité de la mise">
+									{#each ['EUR', 'PERCENT'] as const as unit (unit)}
+										<button
+											type="button"
+											role="radio"
+											aria-checked={stakeUnit === unit}
+											class:selected={stakeUnit === unit}
+											onclick={() => chooseStakeUnit(unit)}>{UNIT_SYMBOL[unit]}</button
+										>
+									{/each}
+								</span>
+							{/if}
+						</span>
 						<input
 							class="num"
 							inputmode="decimal"
 							value={montante ? String(montante.capital) : stakeInput}
 							oninput={(e) => (stakeInput = e.currentTarget.value)}
 							disabled={montante !== null}
-							aria-label="Mise en euros"
+							aria-label={stakeUnit === 'PERCENT' && !montante
+								? 'Mise en pourcentage de la bankroll'
+								: 'Mise en euros'}
 						/>
-					</label>
+						{#if stakeUnit === 'PERCENT' && !montante}
+							<span class="equivalent">= {money(stake)}</span>
+						{/if}
+					</div>
 					<label class="figure">
 						<span>Cote</span>
 						<input
@@ -483,8 +535,11 @@
 				{#if !montante}
 					<ChoiceChips
 						label="Mises rapides"
-						options={STAKE_SHORTCUTS.map((value) => ({ value, label: `${value} €` }))}
-						value={STAKE_SHORTCUTS.includes(stake) ? stake : null}
+						options={STAKE_SHORTCUTS[stakeUnit].map((value) => ({
+							value,
+							label: `${value} ${UNIT_SYMBOL[stakeUnit]}`
+						}))}
+						value={parseNumber(stakeInput)}
 						onselect={(value) => (stakeInput = String(value))}
 					/>
 				{/if}
@@ -523,7 +578,7 @@
 							<button
 								type="button"
 								class="follow"
-								onclick={() => (stakeInput = String(kelly?.stake))}
+								onclick={() => kelly && setStakeInEuros(kelly.stake)}
 							>
 								Suivre · {amount(kelly.stake)}
 							</button>
@@ -876,6 +931,29 @@
 	.figure > span {
 		font-size: 10px;
 		color: var(--muted);
+	}
+	.figure-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 6px;
+	}
+	.units {
+		display: flex;
+		gap: 2px;
+	}
+	.units button {
+		border: none;
+		border-radius: 6px;
+		padding: 1px 6px;
+		background: var(--bg);
+		font-size: 10px;
+		font-weight: 700;
+		color: var(--muted);
+	}
+	.units button.selected {
+		background: var(--grass);
+		color: #fff;
 	}
 	.figure input,
 	.figure output {

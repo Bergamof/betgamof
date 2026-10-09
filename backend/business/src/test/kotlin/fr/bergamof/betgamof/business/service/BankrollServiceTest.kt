@@ -5,6 +5,7 @@ import fr.bergamof.betgamof.business.NotFoundException
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings
 import fr.bergamof.betgamof.business.domain.BetStatus
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.Money
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -63,10 +64,10 @@ class BankrollServiceTest {
     fun `update replaces the settings`() {
         val id = fixture.bankroll()
 
-        val view = bankrolls.update(id, BankrollSettings("Fun", BankrollColor.CIEL, Money.euros(250), null, 0.1, Money.euros(5)))
+        val view = bankrolls.update(id, BankrollSettings("Fun", BankrollColor.CIEL, Money.euros(250), null, 0.1, DefaultStake.Percent(2.0)))
 
         assertEquals("Fun", view.name)
-        assertEquals(Money.euros(5), view.fixedStake)
+        assertEquals(DefaultStake.Percent(2.0), view.defaultStake)
     }
 
     @Test
