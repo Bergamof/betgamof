@@ -3,6 +3,7 @@ package fr.bergamof.betgamof.inbound.rest
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BetStatus
 import fr.bergamof.betgamof.business.domain.BetType
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import fr.bergamof.betgamof.business.domain.Market
 import fr.bergamof.betgamof.business.domain.MarketCategory
 import fr.bergamof.betgamof.business.domain.Money
@@ -45,7 +46,7 @@ val bankrollView =
         stopLoss = euros(900.0),
         stopLossMargin = euros(118.5),
         kellyFraction = 0.25,
-        fixedStake = null,
+        defaultStake = DefaultStake.Percent(2.5),
         outsideMontantes = euros(160.0),
         openStake = euros(10.0),
         staked = euros(25.0),

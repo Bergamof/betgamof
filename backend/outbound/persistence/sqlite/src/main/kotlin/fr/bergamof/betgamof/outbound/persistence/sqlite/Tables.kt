@@ -12,7 +12,8 @@ internal object BankrollsTable : LongIdTable("bankrolls") {
     val initialBalanceCents = long("initial_balance_cents")
     val stopLossCents = long("stop_loss_cents").nullable()
     val kellyFraction = double("kelly_fraction")
-    val fixedStakeCents = long("fixed_stake_cents").nullable()
+    val defaultStakeCents = long("default_stake_cents").nullable()
+    val defaultStakePercent = double("default_stake_percent").nullable()
     val createdAt = text("created_at")
 }
 

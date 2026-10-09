@@ -2,6 +2,7 @@ package fr.bergamof.betgamof.inbound.rest
 
 import fr.bergamof.betgamof.business.domain.BankrollColor
 import fr.bergamof.betgamof.business.domain.BankrollSettings
+import fr.bergamof.betgamof.business.domain.DefaultStake
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.mockk.every
@@ -11,8 +12,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class BankrollRoutesTest : RestTest() {
-    private val body = """{"name":"Fun","color":"CIEL","initialBalance":250.5,"stopLoss":200,"fixedStake":5}"""
-    private val settings = BankrollSettings("Fun", BankrollColor.CIEL, euros(250.5), euros(200.0), 0.25, euros(5.0))
+    private val body = """{"name":"Fun","color":"CIEL","initialBalance":250.5,"stopLoss":200,"defaultStake":{"unit":"EUR","value":5}}"""
+    private val settings = BankrollSettings("Fun", BankrollColor.CIEL, euros(250.5), euros(200.0), 0.25, DefaultStake.Amount(euros(5.0)))
 
     @Test
     fun `bankrolls are listed with amounts in euros`() =
@@ -23,7 +24,8 @@ class BankrollRoutesTest : RestTest() {
 
             assertEquals("1018.5", bankroll.at("balance"))
             assertEquals("GAZON", bankroll.at("color"))
-            assertEquals("null", bankroll.at("fixedStake"))
+            assertEquals("PERCENT", bankroll.at("defaultStake.unit"))
+            assertEquals("2.5", bankroll.at("defaultStake.value"))
         }
 
     @Test
@@ -35,6 +37,15 @@ class BankrollRoutesTest : RestTest() {
 
             assertEquals(HttpStatusCode.Created, response.status)
             assertEquals("1", response.jsonObject().at("id"))
+        }
+
+    @Test
+    fun `a default stake may be a percentage of the balance`() =
+        api {
+            val percentBody = body.replace(""""unit":"EUR","value":5""", """"unit":"PERCENT","value":2.5""")
+            every { bankrolls.create(settings.copy(defaultStake = DefaultStake.Percent(2.5))) } returns bankrollView
+
+            assertEquals(HttpStatusCode.Created, client.call(HttpMethod.Post, "/api/bankrolls", percentBody).status)
         }
 
     @Test

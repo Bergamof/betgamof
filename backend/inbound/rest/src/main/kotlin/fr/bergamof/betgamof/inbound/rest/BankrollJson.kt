@@ -1,6 +1,8 @@
 package fr.bergamof.betgamof.inbound.rest
 
 import fr.bergamof.betgamof.business.domain.BankrollColor
+import fr.bergamof.betgamof.business.domain.DefaultStake
+import fr.bergamof.betgamof.business.domain.Money
 import fr.bergamof.betgamof.business.model.BankrollView
 import kotlinx.serialization.Serializable
 
@@ -17,7 +19,7 @@ data class BankrollJson(
     val stopLoss: Double?,
     val stopLossMargin: Double?,
     val kellyFraction: Double,
-    val fixedStake: Double?,
+    val defaultStake: StakeJson?,
     val outsideMontantes: Double,
     val openStake: Double,
     val staked: Double,
@@ -37,7 +39,7 @@ fun BankrollView.toJson() =
         stopLoss = stopLoss?.toEuros(),
         stopLossMargin = stopLossMargin?.toEuros(),
         kellyFraction = kellyFraction,
-        fixedStake = fixedStake?.toEuros(),
+        defaultStake = defaultStake?.toJson(),
         outsideMontantes = outsideMontantes.toEuros(),
         openStake = openStake.toEuros(),
         staked = staked.toEuros(),
@@ -46,3 +48,24 @@ fun BankrollView.toJson() =
         betCount = betCount,
         bookmakers = bookmakers,
     )
+
+enum class StakeUnit { EUR, PERCENT }
+
+/** A stake in euros, or in percent of the bankroll balance. */
+@Serializable
+data class StakeJson(
+    val unit: StakeUnit,
+    val value: Double,
+) {
+    fun toDefaultStake(): DefaultStake =
+        when (unit) {
+            StakeUnit.EUR -> DefaultStake.Amount(Money.euros(value))
+            StakeUnit.PERCENT -> DefaultStake.Percent(value)
+        }
+}
+
+fun DefaultStake.toJson() =
+    when (this) {
+        is DefaultStake.Amount -> StakeJson(StakeUnit.EUR, amount.toEuros())
+        is DefaultStake.Percent -> StakeJson(StakeUnit.PERCENT, percent)
+    }
