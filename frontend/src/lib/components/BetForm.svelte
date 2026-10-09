@@ -594,7 +594,7 @@
 		}
 		.checkout {
 			position: sticky;
-			top: 64px;
+			top: 0;
 		}
 	}
 	.combining {

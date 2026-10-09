@@ -36,7 +36,9 @@
 				>×</button
 			>
 		</div>
-		{#if open}{@render children()}{/if}
+		<div class="body">
+			{#if open}{@render children()}{/if}
+		</div>
 	</div>
 </dialog>
 
@@ -57,11 +59,9 @@
 		margin: auto auto 0;
 		width: min(1040px, calc(100vw - 48px));
 		max-width: none;
-		max-height: min(92dvh, calc(100dvh - 24px));
 		border-radius: 28px 28px 0 0;
 		box-shadow: 0 -18px 50px rgba(18, 24, 14, 0.25);
-		overflow: auto;
-		overscroll-behavior: contain;
+		overflow: hidden;
 	}
 	.sheet[open] {
 		animation: rise 0.22s ease-out;
@@ -82,26 +82,36 @@
 			width: 100vw;
 		}
 	}
-	.content {
-		padding: 20px;
+	.content,
+	.body {
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
 	}
-	.sheet .content {
-		padding: 0 24px calc(24px + env(safe-area-inset-bottom));
+	.content {
+		padding: 20px;
 	}
 	.head {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
+	/* Only the body scrolls: the header stays put and the scrollbar keeps clear of the rounded corners. */
+	.sheet .content {
+		padding: 0;
+		gap: 0;
+		max-height: min(92dvh, calc(100dvh - 24px));
+	}
 	.sheet .head {
-		position: sticky;
-		top: 0;
-		z-index: 1;
-		padding: 20px 0 12px;
-		background: var(--bg);
+		padding: 20px 24px 12px;
+	}
+	.sheet .body {
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scrollbar-width: thin;
+		scrollbar-color: var(--border) transparent;
+		padding: 2px 24px calc(24px + env(safe-area-inset-bottom));
 	}
 	.close {
 		width: 30px;
