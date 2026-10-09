@@ -16,6 +16,7 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le pr
 ### Changed
 
 - Ajout et modification d'un pari dans un grand panneau posé sur le bas de l'écran et centré (variante `sheet` de `Dialog`) : le formulaire d'ajout passe sur deux colonnes (marchés | ticket) quand la place le permet ; il remplace le panneau latéral de la page Paris et s'ouvre via `?ajout=1`.
+- Formulaire d'ajout d'un pari : aucun événement n'est présélectionné, il s'ouvre sur la liste des événements.
 - Backend : chaque requête ne lit plus que les paris dont elle a besoin (critères `BetCriteria` traduits en SQL, période, pagination) au lieu de tout l'historique ; soldes calculés à partir de totaux agrégés. `GET /api/bets` accepte `limit` et `offset` (facultatifs, sans eux tout est renvoyé comme avant).
 - Backend restructuré en modules `business` (domaine, ports et logique métier, sans dépendance), `inbound/rest`, `outbound/persistence/sqlite`, `outbound/odds` et `application` (démarrage et câblage) ; `domain`, `adapters/*`, `app` et `buildSrc` supprimés, configuration commune dans `backend/build.gradle.kts`. Contrat JSON de l'API inchangé.
 - Objets du domaine `BetChange` et `NewRule` : la modification d'un pari et l'ajout d'une règle passent eux aussi par des objets du domaine validés.

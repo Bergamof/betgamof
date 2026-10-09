@@ -58,13 +58,13 @@
 
 	// Props only seed the form: later changes of the page data must not reset what the user typed.
 	const initial = untrack(() => ({
-		eventId: events[0]?.id ?? '',
 		bankrollId: defaultBankrollId ?? bankrolls[0]?.id ?? 0,
 		montanteId: initialMontanteId
 	}));
 
 	let source: Source = $state('event');
-	let eventId = $state(initial.eventId);
+	// No event preselected: the form opens on the list of events.
+	let eventId: string | null = $state(null);
 	let pickingEvent = $state(false);
 	let eventQuery = $state('');
 	let marketQuery = $state('');
